@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, UserProfile, Language, Country
 
 
 @admin.register(User)
@@ -20,3 +20,39 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('email', 'profile_image', 'google_id'),
         }),
     )
+
+
+@admin.register(Language)
+class LanguageAdmin(admin.ModelAdmin):
+    """언어 관리자"""
+    list_display = ['code', 'name_ko', 'name_en']
+    search_fields = ['code', 'name_ko', 'name_en']
+    ordering = ['code']
+
+
+@admin.register(Country)
+class CountryAdmin(admin.ModelAdmin):
+    """국가 관리자"""
+    list_display = ['code', 'name_ko', 'name_en']
+    search_fields = ['code', 'name_ko', 'name_en']
+    ordering = ['code']
+
+
+class LearningLanguageInline(admin.TabularInline):
+    """배우고자 하는 언어 인라인"""
+    model = UserProfile.learning_languages.through
+    extra = 1
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    """사용자 프로필 관리자"""
+    list_display = ['nickname', 'user_email', 'country', 'created_at', 'updated_at']
+    list_filter = ['country', 'created_at', 'updated_at']
+    search_fields = ['nickname', 'user__email']
+    readonly_fields = ['created_at', 'updated_at']
+    inlines = [LearningLanguageInline]
+
+    def user_email(self, obj):
+        return obj.user.email
+    user_email.short_description = '사용자 이메일'

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinguaPal - API 테스트 메인</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .container {
+            background: white;
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 2.5rem;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 3rem;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .menu-section {
+            margin-bottom: 2rem;
+        }
+
+        .menu-section h2 {
+            color: #667eea;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .menu-item {
+            display: block;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #333;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .menu-item-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+
+        .menu-item-desc {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .info-box h3 {
+            color: #004085;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+
+        .info-box ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-box li {
+            color: #004085;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .info-box li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-ok {
+            background: #28a745;
+        }
+
+        .status-error {
+            background: #dc3545;
+        }
+
+        .server-status {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .server-status-text {
+            color: #856404;
+            font-size: 0.9rem;
+        }
+
+        .server-status.ok {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .server-status.ok .server-status-text {
+            color: #155724;
+        }
+
+        .server-status.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+
+        .server-status.error .server-status-text {
+            color: #721c24;
+        }
+
+        #check-server {
+            background: #667eea;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        #check-server:hover {
+            background: #5568d3;
+        }
+
+        .logout-button {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            margin-top: 1rem;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-button:hover {
+            background: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 LinguaPal</h1>
+        <p class="subtitle">API 테스트 페이지</p>
+
+        <!-- 서버 상태 -->
+        <div id="server-status" class="server-status">
+            <div class="server-status-text">
+                <span class="status-indicator"></span>
+                <span id="server-status-text">서버 상태 확인 중...</span>
+            </div>
+            <button id="check-server" onclick="checkServer()">다시 확인</button>
+        </div>
+
+        <!-- 테스트 메뉴 -->
+        <div class="menu-section">
+            <h2>🔐 인증 테스트</h2>
+            <a href="test_login.html" class="menu-item">
+                <div class="menu-item-title">Google 로그인</div>
+                <div class="menu-item-desc">Google OAuth 로그인 및 JWT 토큰 발급 테스트</div>
+            </a>
+        </div>
+
+        <div class="menu-section">
+            <h2>👤 프로필 테스트</h2>
+            <a href="test_profile.html" class="menu-item">
+                <div class="menu-item-title">프로필 관리</div>
+                <div class="menu-item-desc">프로필 조회, 생성, 수정 테스트 (로그인 필요)</div>
+            </a>
+        </div>
+
+        <!-- 로그아웃 -->
+        <button class="logout-button" onclick="logout()" id="logout-btn" style="display: none;">
+            🚪 로그아웃
+        </button>
+
+        <!-- 안내 -->
+        <div class="info-box">
+            <h3>ℹ️ 사용 방법</h3>
+            <ul>
+                <li>Django 서버가 <code>http://localhost:8000</code>에서 실행 중이어야 합니다</li>
+                <li>먼저 "Google 로그인"에서 로그인하세요</li>
+                <li>로그인 후 "프로필 관리"에서 프로필을 생성/수정할 수 있습니다</li>
+                <li>모든 테스트는 실제 API를 호출합니다</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000/api/v1/auth';
+
+        // 서버 상태 확인
+        async function checkServer() {
+            const statusDiv = document.getElementById('server-status');
+            const statusText = document.getElementById('server-status-text');
+
+            statusDiv.className = 'server-status';
+            statusText.textContent = '서버 상태 확인 중...';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/google/config`, {
+                    method: 'GET',
+                    cache: 'no-cache'
+                });
+
+                if (response.ok) {
+                    statusDiv.className = 'server-status ok';
+                    statusText.innerHTML = '<span class="status-indicator status-ok"></span>Django 서버가 정상적으로 실행 중입니다';
+                } else {
+                    throw new Error('Server returned error status');
+                }
+            } catch (error) {
+                statusDiv.className = 'server-status error';
+                statusText.innerHTML = '<span class="status-indicator status-error"></span>Django 서버에 연결할 수 없습니다';
+                console.error('Server check error:', error);
+            }
+        }
+
+        // 로그인 상태 확인
+        function checkLoginStatus() {
+            const token = localStorage.getItem('access_token');
+            const logoutBtn = document.getElementById('logout-btn');
+
+            if (token) {
+                logoutBtn.style.display = 'block';
+            } else {
+                logoutBtn.style.display = 'none';
+            }
+        }
+
+        // 로그아웃
+        function logout() {
+            if (confirm('로그아웃하시겠습니까?')) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('refresh_token');
+                alert('로그아웃되었습니다.');
+                checkLoginStatus();
+            }
+        }
+
+        // 페이지 로드 시
+        window.addEventListener('load', () => {
+            checkServer();
+            checkLoginStatus();
+        });
+    </script>
+</body>
+</html>

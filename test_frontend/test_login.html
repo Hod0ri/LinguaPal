@@ -197,7 +197,7 @@
 
             try {
                 // Django 백엔드 API 호출
-                const res = await fetch('http://localhost:8000/api/accounts/google/login/', {
+                const res = await fetch('http://localhost:8000/api/v1/auth/google/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -207,38 +207,38 @@
                     })
                 });
 
-                const data = await res.json();
+                const result = await res.json();
 
-                if (res.ok) {
+                if (res.ok && result.success) {
                     // 성공
-                    console.log("로그인 성공:", data);
+                    console.log("로그인 성공:", result);
 
                     // JWT 토큰 로컬 스토리지에 저장
-                    localStorage.setItem('access_token', data.access);
-                    localStorage.setItem('refresh_token', data.refresh);
+                    localStorage.setItem('access_token', result.data.access_token);
+                    localStorage.setItem('refresh_token', result.data.refresh_token);
 
                     resultDiv.className = 'success';
                     resultDiv.innerHTML = `
                         <div class="user-info">
                             <h3>✅ 로그인 성공!</h3>
-                            <p><strong>이메일:</strong> ${data.user.email}</p>
-                            <p><strong>사용자명:</strong> ${data.user.username}</p>
-                            <p><strong>Google ID:</strong> ${data.user.google_id}</p>
-                            ${data.user.profile_image ? `<p><strong>프로필 이미지:</strong> <a href="${data.user.profile_image}" target="_blank">보기</a></p>` : ''}
-                            <p><strong>가입일:</strong> ${new Date(data.user.date_joined).toLocaleString('ko-KR')}</p>
+                            <p><strong>이메일:</strong> ${result.data.user.email}</p>
+                            <p><strong>사용자명:</strong> ${result.data.user.username}</p>
+                            <p><strong>Google ID:</strong> ${result.data.user.google_id}</p>
+                            ${result.data.user.profile_image ? `<p><strong>프로필 이미지:</strong> <a href="${result.data.user.profile_image}" target="_blank">보기</a></p>` : ''}
+                            <p><strong>가입일:</strong> ${new Date(result.data.user.date_joined).toLocaleString('ko-KR')}</p>
                             <div class="token-box">
                                 <strong>Access Token:</strong><br>
-                                ${data.access}
+                                ${result.data.access_token}
                             </div>
                         </div>
                     `;
                 } else {
                     // 실패
-                    console.error("로그인 실패:", data);
+                    console.error("로그인 실패:", result);
                     resultDiv.className = 'error';
                     resultDiv.innerHTML = `
                         <h3>❌ 로그인 실패</h3>
-                        <p><strong>오류:</strong> ${JSON.stringify(data, null, 2)}</p>
+                        <p><strong>오류:</strong> ${result.message || JSON.stringify(result, null, 2)}</p>
                     `;
                 }
             } catch (error) {
@@ -258,19 +258,19 @@
 
             try {
                 // 서버에서 Google Client ID 가져오기
-                const res = await fetch('http://localhost:8000/api/accounts/google/config/');
-                const config = await res.json();
+                const res = await fetch('http://localhost:8000/api/v1/auth/google/config');
+                const result = await res.json();
 
-                if (!res.ok || !config.client_id) {
+                if (!res.ok || !result.success || !result.data.client_id) {
                     throw new Error('Failed to load Google Client ID');
                 }
 
-                console.log('Google Client ID loaded:', config.client_id);
+                console.log('Google Client ID loaded:', result.data.client_id);
 
                 // Google 로그인 버튼 생성
                 container.innerHTML = `
                     <div id="g_id_onload"
-                         data-client_id="${config.client_id}"
+                         data-client_id="${result.data.client_id}"
                          data-context="signin"
                          data-ux_mode="popup"
                          data-callback="handleCredentialResponse"
@@ -290,7 +290,7 @@
                 // Google Sign-In 라이브러리 다시 초기화
                 if (window.google) {
                     window.google.accounts.id.initialize({
-                        client_id: config.client_id,
+                        client_id: result.data.client_id,
                         callback: handleCredentialResponse
                     });
                     window.google.accounts.id.renderButton(
