@@ -45,3 +45,6 @@ Thumbs.db
 *.pid
 *.seed
 *.pid.lock
+
+# Test frontend (kept in repository for development)
+# test_frontend/ is intentionally tracked

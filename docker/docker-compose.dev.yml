@@ -1,15 +1,11 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:17-alpine
     container_name: linguapal-db-dev
     ports:
       - "5432:5432"
-    environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    env_file:
+      - ../.env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -41,10 +37,6 @@ services:
       - ../LinguaPal:/app
       # Python 캐시 제외
       - /app/__pycache__
-    environment:
-      - DEBUG=True
-      - RUN_MOD=DEV
-      - SECRET_KEY=${SECRET_KEY}
     env_file:
       - ../.env
     depends_on:
