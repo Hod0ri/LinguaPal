@@ -1,6 +1,34 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:17-alpine
+    container_name: linguapal-db-dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME:-linguapal}
+      - POSTGRES_USER=${DB_USER:-linguapal_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-linguapal}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Elasticsearch (나중에 사용 예정)
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+  #   container_name: linguapal-es-dev
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   ports:
+  #     - "9200:9200"
+  #     - "9300:9300"
+  #   volumes:
+  #     - elasticsearch_data:/usr/share/elasticsearch/data
+  #   restart: unless-stopped
+
   web:
     build:
       context: ..
@@ -19,6 +47,12 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-this-in-production}
     env_file:
       - ../.env
+    depends_on:
+      - db
     stdin_open: true
     tty: true
     command: python manage.py runserver 0.0.0.0:8000
+
+volumes:
+  postgres_data:
+  # elasticsearch_data:
