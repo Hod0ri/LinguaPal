@@ -100,11 +100,11 @@ if production_mode:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'linguapal'),
-            'USER': os.environ.get('DB_USER', 'linguapal_user'),
+            'NAME': os.environ.get('DB_NAME'),
+            'USER': os.environ.get('DB_USER'),
             'PASSWORD': os.environ.get('DB_PASSWORD'),
-            'HOST': os.environ.get('DB_HOST', 'db'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
+            'HOST': os.environ.get('DB_HOST'),
+            'PORT': os.environ.get('DB_PORT'),
         }
     }
 else:
@@ -112,11 +112,11 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME', 'linguapal'),
-            'USER': os.environ.get('DB_USER', 'linguapal_user'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', 'linguapal'),
-            'HOST': os.environ.get('DB_HOST', 'db'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
+            'NAME': os.environ.get('DB_NAME'),
+            'USER': os.environ.get('DB_USER'),
+            'PASSWORD': os.environ.get('DB_PASSWORD'),
+            'HOST': os.environ.get('DB_HOST'),
+            'PORT': os.environ.get('DB_PORT'),
         }
     }
 

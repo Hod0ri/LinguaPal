@@ -7,9 +7,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=${DB_NAME:-linguapal}
-      - POSTGRES_USER=${DB_USER:-linguapal_user}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-linguapal}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -44,7 +44,7 @@ services:
     environment:
       - DEBUG=True
       - RUN_MOD=DEV
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-this-in-production}
+      - SECRET_KEY=${SECRET_KEY}
     env_file:
       - ../.env
     depends_on:
