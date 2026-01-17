@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: linguapal-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      # 소스 코드 볼륨 마운트 (실시간 반영)
+      - ../LinguaPal:/app
+      # Python 캐시 제외
+      - /app/__pycache__
+    environment:
+      - DEBUG=True
+      - RUN_MOD=DEV
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-this-in-production}
+    env_file:
+      - ../.env
+    stdin_open: true
+    tty: true
+    command: python manage.py runserver 0.0.0.0:8000

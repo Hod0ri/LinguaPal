@@ -133,12 +133,18 @@ celerybeat.pid
 
 # Environments
 .env
+.env.prod
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Docker
+docker/volumes/
+*.pid
+staticfiles/
 
 # Spyder project settings
 .spyderproject
