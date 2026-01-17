@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinguaPal - Google 로그인 테스트</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        #g_id_onload {
+            margin: 2rem 0;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 2rem 0;
+            color: #999;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .divider::before {
+            margin-right: 1rem;
+        }
+
+        .divider::after {
+            margin-left: 1rem;
+        }
+
+        #result {
+            margin-top: 2rem;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: left;
+            display: none;
+        }
+
+        #result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+
+        #result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+
+        .user-info {
+            margin-top: 1rem;
+        }
+
+        .user-info h3 {
+            margin-bottom: 0.5rem;
+            color: #155724;
+        }
+
+        .user-info p {
+            margin: 0.3rem 0;
+            font-size: 0.9rem;
+        }
+
+        .token-box {
+            background: #f8f9fa;
+            padding: 0.5rem;
+            border-radius: 5px;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            word-break: break-all;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 2rem;
+            text-align: left;
+        }
+
+        .info-box h3 {
+            color: #004085;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .info-box p {
+            color: #004085;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .info-box code {
+            background: #cfe2ff;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 LinguaPal</h1>
+        <p class="subtitle">Google 로그인 테스트</p>
+
+        <div class="divider">Google로 시작하기</div>
+
+        <!-- Google 로그인 버튼 (동적으로 생성됨) -->
+        <div id="google-login-container">
+            <div class="loading"></div> Google 설정 로드 중...
+        </div>
+
+        <!-- 결과 표시 영역 -->
+        <div id="result"></div>
+
+        <!-- 설정 안내 -->
+        <div class="info-box">
+            <h3>ℹ️ 사용 방법</h3>
+            <p>
+                <strong>1.</strong> Django 서버가 <code>http://localhost:8000</code>에서 실행 중이어야 합니다.<br>
+                <strong>2.</strong> Google Client ID는 서버에서 자동으로 로드됩니다.<br>
+                <strong>3.</strong> Google 로그인 버튼을 클릭하여 로그인하세요.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Google 로그인 응답 처리
+        async function handleCredentialResponse(response) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = '';
+            resultDiv.innerHTML = '<div class="loading"></div> 로그인 중...';
+            resultDiv.style.display = 'block';
+
+            console.log("Google JWT Token:", response.credential);
+
+            try {
+                // Django 백엔드 API 호출
+                const res = await fetch('http://localhost:8000/api/accounts/google/login/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        access_token: response.credential
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    // 성공
+                    console.log("로그인 성공:", data);
+
+                    // JWT 토큰 로컬 스토리지에 저장
+                    localStorage.setItem('access_token', data.access);
+                    localStorage.setItem('refresh_token', data.refresh);
+
+                    resultDiv.className = 'success';
+                    resultDiv.innerHTML = `
+                        <div class="user-info">
+                            <h3>✅ 로그인 성공!</h3>
+                            <p><strong>이메일:</strong> ${data.user.email}</p>
+                            <p><strong>사용자명:</strong> ${data.user.username}</p>
+                            <p><strong>Google ID:</strong> ${data.user.google_id}</p>
+                            ${data.user.profile_image ? `<p><strong>프로필 이미지:</strong> <a href="${data.user.profile_image}" target="_blank">보기</a></p>` : ''}
+                            <p><strong>가입일:</strong> ${new Date(data.user.date_joined).toLocaleString('ko-KR')}</p>
+                            <div class="token-box">
+                                <strong>Access Token:</strong><br>
+                                ${data.access}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // 실패
+                    console.error("로그인 실패:", data);
+                    resultDiv.className = 'error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ 로그인 실패</h3>
+                        <p><strong>오류:</strong> ${JSON.stringify(data, null, 2)}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h3>❌ 네트워크 오류</h3>
+                    <p><strong>오류 메시지:</strong> ${error.message}</p>
+                    <p>Django 서버가 실행 중인지 확인하세요.</p>
+                `;
+            }
+        }
+
+        // Google Client ID를 서버에서 로드하고 Google 로그인 버튼 초기화
+        async function initializeGoogleLogin() {
+            const container = document.getElementById('google-login-container');
+
+            try {
+                // 서버에서 Google Client ID 가져오기
+                const res = await fetch('http://localhost:8000/api/accounts/google/config/');
+                const config = await res.json();
+
+                if (!res.ok || !config.client_id) {
+                    throw new Error('Failed to load Google Client ID');
+                }
+
+                console.log('Google Client ID loaded:', config.client_id);
+
+                // Google 로그인 버튼 생성
+                container.innerHTML = `
+                    <div id="g_id_onload"
+                         data-client_id="${config.client_id}"
+                         data-context="signin"
+                         data-ux_mode="popup"
+                         data-callback="handleCredentialResponse"
+                         data-auto_prompt="false">
+                    </div>
+
+                    <div class="g_id_signin"
+                         data-type="standard"
+                         data-shape="rectangular"
+                         data-theme="outline"
+                         data-text="signin_with"
+                         data-size="large"
+                         data-logo_alignment="left">
+                    </div>
+                `;
+
+                // Google Sign-In 라이브러리 다시 초기화
+                if (window.google) {
+                    window.google.accounts.id.initialize({
+                        client_id: config.client_id,
+                        callback: handleCredentialResponse
+                    });
+                    window.google.accounts.id.renderButton(
+                        document.querySelector('.g_id_signin'),
+                        {
+                            type: 'standard',
+                            shape: 'rectangular',
+                            theme: 'outline',
+                            text: 'signin_with',
+                            size: 'large',
+                            logo_alignment: 'left'
+                        }
+                    );
+                }
+
+            } catch (error) {
+                console.error('Error loading Google config:', error);
+                container.innerHTML = `
+                    <div style="color: #721c24; background: #f8d7da; padding: 1rem; border-radius: 10px; border: 1px solid #f5c6cb;">
+                        <h3>❌ 설정 로드 실패</h3>
+                        <p><strong>오류:</strong> ${error.message}</p>
+                        <p>Django 서버가 실행 중인지 확인하세요.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', () => {
+            const accessToken = localStorage.getItem('access_token');
+            if (accessToken) {
+                console.log('저장된 Access Token:', accessToken);
+            }
+
+            // Google Client ID 로드 및 로그인 버튼 초기화
+            initializeGoogleLogin();
+        });
+    </script>
+</body>
+</html>
