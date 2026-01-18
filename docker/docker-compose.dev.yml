@@ -10,6 +10,24 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  minio:
+    image: minio/minio:latest
+    container_name: linguapal-minio-dev
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    env_file:
+      - ../.env
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # Elasticsearch (나중에 사용 예정)
   # elasticsearch:
   #   image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -41,10 +59,12 @@ services:
       - ../.env
     depends_on:
       - db
+      - minio
     stdin_open: true
     tty: true
     command: python manage.py runserver 0.0.0.0:8000
 
 volumes:
   postgres_data:
+  minio_data:
   # elasticsearch_data:

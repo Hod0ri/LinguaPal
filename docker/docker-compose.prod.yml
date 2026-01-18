@@ -12,6 +12,25 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  minio:
+    image: minio/minio:latest
+    container_name: linguapal-minio-prod
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # Elasticsearch (나중에 사용 예정)
   # elasticsearch:
   #   image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -38,9 +57,11 @@ services:
       - ../.env
     depends_on:
       - db
+      - minio
     restart: unless-stopped
     command: gunicorn --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 60 --access-logfile - --error-logfile - LinguaPal.wsgi:application
 
 volumes:
   postgres_data:
+  minio_data:
   # elasticsearch_data:
