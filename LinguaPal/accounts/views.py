@@ -1,9 +1,10 @@
-from rest_framework import generics, permissions, status
+from rest_framework import generics, permissions, status, serializers
 from rest_framework.views import APIView
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from django.conf import settings
 from django.core.cache import cache
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiResponse
 from .models import User, UserProfile, Language, Country
 from .serializers import (
     UserSerializer,
@@ -17,10 +18,58 @@ from .utils import APIResponse, ErrorCode
 import time
 
 
+# API 문서용 Serializer
+class GoogleLoginRequestSerializer(serializers.Serializer):
+    access_token = serializers.CharField(help_text="Google OAuth2 ID 토큰")
+
+
+class TokenResponseSerializer(serializers.Serializer):
+    access_token = serializers.CharField()
+    refresh_token = serializers.CharField()
+    user = UserSerializer()
+
+
+class GoogleConfigResponseSerializer(serializers.Serializer):
+    client_id = serializers.CharField()
+
+
+class ErrorResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField(default=False)
+    message = serializers.CharField()
+    data = serializers.DictField()
+
+
+@extend_schema(tags=['인증'])
 class GoogleLoginView(APIView):
-    """Google OAuth2 login with ID token verification"""
+    """Google OAuth2 로그인"""
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        summary="Google 로그인",
+        description="Google OAuth2 ID 토큰을 검증하고 JWT 토큰을 발급합니다.",
+        request=GoogleLoginRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=TokenResponseSerializer,
+                description="로그인 성공"
+            ),
+            400: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="잘못된 토큰"
+            ),
+            429: OpenApiResponse(
+                response=ErrorResponseSerializer,
+                description="요청 횟수 초과"
+            ),
+        },
+        examples=[
+            OpenApiExample(
+                'Request Example',
+                value={'access_token': 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...'},
+                request_only=True,
+            ),
+        ]
+    )
     def post(self, request):
         """Verify Google ID token and create/login user"""
         token = request.data.get('access_token')
@@ -165,12 +214,17 @@ class GoogleLoginView(APIView):
         return ip
 
 
+@extend_schema(tags=['인증'])
 class GoogleConfigView(APIView):
-    """Return Google OAuth configuration"""
+    """Google OAuth 설정 조회"""
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        summary="Google OAuth 설정 조회",
+        description="Google OAuth Client ID를 반환합니다.",
+        responses={200: GoogleConfigResponseSerializer},
+    )
     def get(self, request):
-        """Return Google OAuth Client ID"""
         return APIResponse.success(
             message='Google OAuth configuration retrieved',
             data={
@@ -179,14 +233,20 @@ class GoogleConfigView(APIView):
         )
 
 
+@extend_schema(tags=['사용자'])
 class CurrentUserView(generics.RetrieveAPIView):
-    """Get current logged-in user information"""
+    """현재 로그인한 사용자 정보 조회"""
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user
 
+    @extend_schema(
+        summary="현재 사용자 정보 조회",
+        description="JWT 토큰으로 인증된 현재 사용자의 정보를 반환합니다.",
+        responses={200: UserSerializer},
+    )
     def get(self, request, *args, **kwargs):
         user = self.get_object()
         serializer = self.get_serializer(user)
@@ -196,12 +256,17 @@ class CurrentUserView(generics.RetrieveAPIView):
         )
 
 
+@extend_schema(tags=['기본 데이터'])
 class LanguageListView(generics.ListAPIView):
-    """Get language list (no authentication required)"""
+    """언어 목록 조회"""
     queryset = Language.objects.all()
     serializer_class = LanguageSerializer
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        summary="언어 목록 조회",
+        description="시스템에서 지원하는 언어 목록을 반환합니다. 인증이 필요하지 않습니다.",
+    )
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
@@ -214,12 +279,17 @@ class LanguageListView(generics.ListAPIView):
         )
 
 
+@extend_schema(tags=['기본 데이터'])
 class CountryListView(generics.ListAPIView):
-    """Get country list (no authentication required)"""
+    """국가 목록 조회"""
     queryset = Country.objects.all()
     serializer_class = CountrySerializer
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(
+        summary="국가 목록 조회",
+        description="시스템에서 지원하는 국가 목록을 반환합니다. 인증이 필요하지 않습니다.",
+    )
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
@@ -232,12 +302,20 @@ class CountryListView(generics.ListAPIView):
         )
 
 
+@extend_schema(tags=['프로필'])
 class UserProfileView(APIView):
-    """User profile view/create/update"""
+    """사용자 프로필 관리"""
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        summary="프로필 조회",
+        description="현재 로그인한 사용자의 프로필을 조회합니다.",
+        responses={
+            200: UserProfileSerializer,
+            404: ErrorResponseSerializer,
+        },
+    )
     def get(self, request):
-        """Get profile"""
         try:
             profile = request.user.profile
             serializer = UserProfileSerializer(profile)
@@ -252,8 +330,16 @@ class UserProfileView(APIView):
                 status_code=status.HTTP_404_NOT_FOUND
             )
 
+    @extend_schema(
+        summary="프로필 생성",
+        description="현재 로그인한 사용자의 프로필을 생성합니다. 닉네임, 국가, 학습 언어를 설정합니다.",
+        request=UserProfileCreateSerializer,
+        responses={
+            201: UserProfileSerializer,
+            400: ErrorResponseSerializer,
+        },
+    )
     def post(self, request):
-        """Create profile"""
         # Check if profile already exists
         if hasattr(request.user, 'profile'):
             return APIResponse.error(
@@ -279,8 +365,17 @@ class UserProfileView(APIView):
             message='Validation failed'
         )
 
+    @extend_schema(
+        summary="프로필 수정",
+        description="현재 로그인한 사용자의 프로필을 수정합니다. 닉네임과 학습 언어만 수정 가능합니다.",
+        request=UserProfileUpdateSerializer,
+        responses={
+            200: UserProfileSerializer,
+            400: ErrorResponseSerializer,
+            404: ErrorResponseSerializer,
+        },
+    )
     def patch(self, request):
-        """Update profile (nickname and languages only)"""
         try:
             profile = request.user.profile
         except UserProfile.DoesNotExist:
