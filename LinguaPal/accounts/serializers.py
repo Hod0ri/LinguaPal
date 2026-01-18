@@ -156,11 +156,12 @@ class UserSerializer(serializers.ModelSerializer):
     """사용자 시리얼라이저"""
     profile = UserProfileSerializer(read_only=True)
     has_profile = serializers.SerializerMethodField()
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'profile_image', 'google_id', 'date_joined', 'profile', 'has_profile']
-        read_only_fields = ['id', 'google_id', 'date_joined']
+        fields = ['id', 'email', 'username', 'profile_image', 'google_id', 'role', 'role_display', 'date_joined', 'profile', 'has_profile']
+        read_only_fields = ['id', 'google_id', 'role', 'role_display', 'date_joined']
 
     def get_has_profile(self, obj):
         """프로필 존재 여부"""

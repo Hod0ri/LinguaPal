@@ -4,9 +4,21 @@ from django.db import models
 
 class User(AbstractUser):
     """커스텀 사용자 모델"""
+
+    class Role(models.TextChoices):
+        ADMIN = 'admin', '관리자'
+        STAFF = 'staff', '스태프'
+        USER = 'user', '일반 사용자'
+
     email = models.EmailField(unique=True, verbose_name='이메일')
     profile_image = models.URLField(blank=True, null=True, verbose_name='프로필 이미지')
     google_id = models.CharField(max_length=255, blank=True, null=True, unique=True, verbose_name='Google ID')
+    role = models.CharField(
+        max_length=10,
+        choices=Role.choices,
+        default=Role.USER,
+        verbose_name='역할'
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
@@ -17,6 +29,31 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+    @property
+    def is_admin_role(self):
+        """Admin 역할 여부"""
+        return self.role == self.Role.ADMIN
+
+    @property
+    def is_staff_role(self):
+        """Staff 역할 여부"""
+        return self.role == self.Role.STAFF
+
+    @property
+    def is_user_role(self):
+        """일반 사용자 역할 여부"""
+        return self.role == self.Role.USER
+
+    def save(self, *args, **kwargs):
+        # Admin 역할인 경우 Django의 is_staff, is_superuser 자동 설정
+        if self.role == self.Role.ADMIN:
+            self.is_staff = True
+            self.is_superuser = True
+        else:
+            self.is_staff = False
+            self.is_superuser = False
+        super().save(*args, **kwargs)
 
 
 class Language(models.Model):

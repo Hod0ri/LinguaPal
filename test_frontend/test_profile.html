@@ -268,6 +268,9 @@
                     <strong>로그인된 사용자:</strong> <span id="current-user-email">-</span>
                 </div>
                 <div class="profile-item">
+                    <strong>역할:</strong> <span id="current-user-role">-</span>
+                </div>
+                <div class="profile-item">
                     <strong>프로필 상태:</strong> <span id="profile-status">확인 중...</span>
                 </div>
             </div>
@@ -406,6 +409,16 @@
                         document.getElementById('auth-warning').classList.add('hidden');
                         document.getElementById('user-info').classList.remove('hidden');
                         document.getElementById('current-user-email').textContent = data.email;
+
+                        // 역할별 배지 색상
+                        const roleBadgeColors = {
+                            'admin': '#dc3545',
+                            'staff': '#fd7e14',
+                            'user': '#28a745'
+                        };
+                        const roleColor = roleBadgeColors[data.role] || '#6c757d';
+                        document.getElementById('current-user-role').innerHTML =
+                            `<span style="background: ${roleColor}; color: white; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.85rem;">${data.role_display || data.role}</span>`;
 
                         if (data.has_profile) {
                             document.getElementById('profile-status').innerHTML =
@@ -707,10 +720,20 @@
                         `;
                     }
 
+                    // 역할별 배지 색상
+                    const roleBadgeColors = {
+                        'admin': '#dc3545',
+                        'staff': '#fd7e14',
+                        'user': '#28a745'
+                    };
+                    const roleColor = roleBadgeColors[data.role] || '#6c757d';
+                    const roleBadge = `<span style="background: ${roleColor}; color: white; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.85rem;">${data.role_display || data.role}</span>`;
+
                     showResult('current-user-result', 'success', `
                         <h3>✅ 사용자 정보</h3>
                         <div class="profile-item"><strong>이메일:</strong> ${data.email}</div>
                         <div class="profile-item"><strong>사용자명:</strong> ${data.username}</div>
+                        <div class="profile-item"><strong>역할:</strong> ${roleBadge}</div>
                         <div class="profile-item"><strong>Google ID:</strong> ${data.google_id || '-'}</div>
                         <div class="profile-item"><strong>가입일:</strong> ${new Date(data.date_joined).toLocaleString('ko-KR')}</div>
                         <div class="profile-item"><strong>프로필 여부:</strong> ${data.has_profile ? '✅ 있음' : '❌ 없음'}</div>

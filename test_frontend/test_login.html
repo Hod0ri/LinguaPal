@@ -217,12 +217,21 @@
                     localStorage.setItem('access_token', result.data.access_token);
                     localStorage.setItem('refresh_token', result.data.refresh_token);
 
+                    // 역할별 배지 색상
+                    const roleBadgeColors = {
+                        'admin': '#dc3545',
+                        'staff': '#fd7e14',
+                        'user': '#28a745'
+                    };
+                    const roleColor = roleBadgeColors[result.data.user.role] || '#6c757d';
+
                     resultDiv.className = 'success';
                     resultDiv.innerHTML = `
                         <div class="user-info">
                             <h3>✅ 로그인 성공!</h3>
                             <p><strong>이메일:</strong> ${result.data.user.email}</p>
                             <p><strong>사용자명:</strong> ${result.data.user.username}</p>
+                            <p><strong>역할:</strong> <span style="background: ${roleColor}; color: white; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.85rem;">${result.data.user.role_display || result.data.user.role}</span></p>
                             <p><strong>Google ID:</strong> ${result.data.user.google_id}</p>
                             ${result.data.user.profile_image ? `<p><strong>프로필 이미지:</strong> <a href="${result.data.user.profile_image}" target="_blank">보기</a></p>` : ''}
                             <p><strong>가입일:</strong> ${new Date(result.data.user.date_joined).toLocaleString('ko-KR')}</p>
