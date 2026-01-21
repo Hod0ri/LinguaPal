@@ -596,7 +596,7 @@
             showResult('create-result', 'info', '<div class="loading"></div> 프로필 생성 중...');
 
             try {
-                const response = await fetch(`${API_BASE_URL}/users/me/profile`, {
+                const response = await fetch(`${API_BASE_URL}/users/me/profile/create`, {
                     method: 'POST',
                     headers: getAuthHeaders(),
                     body: JSON.stringify({
@@ -659,7 +659,7 @@
             showResult('update-result', 'info', '<div class="loading"></div> 프로필 수정 중...');
 
             try {
-                const response = await fetch(`${API_BASE_URL}/users/me/profile`, {
+                const response = await fetch(`${API_BASE_URL}/users/me/profile/update`, {
                     method: 'PATCH',
                     headers: getAuthHeaders(),
                     body: JSON.stringify(updateData)

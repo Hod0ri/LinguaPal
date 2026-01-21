@@ -68,7 +68,7 @@ const API = {
                 return handleAPIResponse(response);
             },
             create: async (token, profileData) => {
-                const response = await fetch(`${API_V1_BASE_URL}/users/me/profile`, {
+                const response = await fetch(`${API_V1_BASE_URL}/users/me/profile/create`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -79,7 +79,7 @@ const API = {
                 return handleAPIResponse(response);
             },
             update: async (token, profileData) => {
-                const response = await fetch(`${API_V1_BASE_URL}/users/me/profile`, {
+                const response = await fetch(`${API_V1_BASE_URL}/users/me/profile/update`, {
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
