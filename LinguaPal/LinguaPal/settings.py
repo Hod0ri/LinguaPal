@@ -58,6 +58,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     'accounts',
+    'words',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -201,6 +202,16 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': r'/api/',
+    'TAGS': [
+        {'name': '인증', 'description': 'Google OAuth 인증 관련 API'},
+        {'name': '사용자', 'description': '사용자 정보 관련 API'},
+        {'name': '프로필', 'description': '사용자 프로필 관리 API'},
+        {'name': '기본 데이터', 'description': '언어, 국가 등 마스터 데이터 API'},
+        {'name': '관리자 - 단어', 'description': '단어 CRUD (Admin/Staff 전용)'},
+        {'name': '관리자 - 단어 번역', 'description': '단어 번역 관리 (Admin/Staff 전용)'},
+        {'name': '관리자 - 예문', 'description': '예문 CRUD (Admin/Staff 전용)'},
+        {'name': '관리자 - 예문 번역', 'description': '예문 번역 관리 (Admin/Staff 전용)'},
+    ],
 }
 
 # Simple JWT Settings

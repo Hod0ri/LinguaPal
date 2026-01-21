@@ -215,7 +215,7 @@ class UserProfileAPITest(APITestCase):
     def test_create_profile_success(self):
         """프로필 생성 성공 테스트"""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:create_profile')
         data = {
             'nickname': '테스터',
             'country': self.country_kr.id,
@@ -245,7 +245,7 @@ class UserProfileAPITest(APITestCase):
 
         # 두 번째 프로필 생성 시도
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:create_profile')
         data = {
             'nickname': '테스터2',
             'country': self.country_kr.id,
@@ -260,7 +260,7 @@ class UserProfileAPITest(APITestCase):
     def test_create_profile_invalid_nickname_too_short(self):
         """닉네임이 너무 짧을 때 테스트"""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:create_profile')
         data = {
             'nickname': '테',
             'country': self.country_kr.id,
@@ -288,7 +288,7 @@ class UserProfileAPITest(APITestCase):
 
         # 같은 닉네임으로 프로필 생성 시도
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:create_profile')
         data = {
             'nickname': '이미사용중',
             'country': self.country_kr.id,
@@ -303,7 +303,7 @@ class UserProfileAPITest(APITestCase):
     def test_create_profile_no_learning_languages(self):
         """배우고자 하는 언어가 없을 때 테스트"""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:create_profile')
         data = {
             'nickname': '테스터',
             'country': self.country_kr.id,
@@ -318,7 +318,7 @@ class UserProfileAPITest(APITestCase):
     def test_create_profile_invalid_language_id(self):
         """존재하지 않는 언어 ID로 프로필 생성 시도"""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:create_profile')
         data = {
             'nickname': '테스터',
             'country': self.country_kr.id,
@@ -359,7 +359,7 @@ class UserProfileAPITest(APITestCase):
         profile.learning_languages.add(self.language_en)
 
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:update_profile')
         data = {
             'nickname': '새닉네임'
         }
@@ -383,7 +383,7 @@ class UserProfileAPITest(APITestCase):
         profile.learning_languages.add(self.language_en)
 
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:update_profile')
         data = {
             'learning_language_ids': [self.language_ja.id, self.language_zh.id]
         }
@@ -409,7 +409,7 @@ class UserProfileAPITest(APITestCase):
         profile.learning_languages.add(self.language_en)
 
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:update_profile')
         data = {
             'nickname': '새닉네임',
             'learning_language_ids': [self.language_ja.id]
@@ -449,7 +449,7 @@ class UserProfileAPITest(APITestCase):
 
         # 다른 사용자의 닉네임으로 변경 시도
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:update_profile')
         data = {
             'nickname': '이미사용중'
         }
@@ -462,7 +462,7 @@ class UserProfileAPITest(APITestCase):
     def test_update_profile_not_found(self):
         """프로필이 없을 때 수정 테스트"""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
-        url = reverse('accounts:user_profile')
+        url = reverse('accounts:update_profile')
         data = {
             'nickname': '새닉네임'
         }
