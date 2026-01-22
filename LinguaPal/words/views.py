@@ -27,9 +27,10 @@ from .serializers import (
 @extend_schema(
     tags=['관리자 - 단어'],
     summary="단어 목록 조회",
-    description="등록된 단어 목록을 조회합니다. 언어, 품사, 난이도로 필터링 가능합니다.",
+    description="등록된 단어 목록을 조회합니다. 언어, 카테고리, 품사, 난이도로 필터링 가능합니다.",
     parameters=[
         OpenApiParameter(name='language', description='언어 ID', required=False, type=int),
+        OpenApiParameter(name='category', description='카테고리 (word, hiragana, katakana, kanji, alphabet)', required=False, type=str),
         OpenApiParameter(name='part_of_speech', description='품사', required=False, type=str),
         OpenApiParameter(name='difficulty_level', description='난이도 (1-5)', required=False, type=int),
         OpenApiParameter(name='is_active', description='활성화 여부', required=False, type=bool),
@@ -47,6 +48,10 @@ def admin_word_list(request):
     language_id = request.query_params.get('language')
     if language_id:
         queryset = queryset.filter(language_id=language_id)
+
+    category = request.query_params.get('category')
+    if category:
+        queryset = queryset.filter(category=category)
 
     part_of_speech = request.query_params.get('part_of_speech')
     if part_of_speech:

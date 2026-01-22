@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Word, WordTranslation, Example, ExampleTranslation, PartOfSpeech
+from .models import Word, WordTranslation, Example, ExampleTranslation, PartOfSpeech, WordCategory
 from accounts.models import Language
 
 
@@ -43,6 +43,7 @@ class WordSerializer(serializers.ModelSerializer):
     """단어 Serializer (조회용)"""
     language_code = serializers.CharField(source='language.code', read_only=True)
     language_name = serializers.CharField(source='language.name_ko', read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
     part_of_speech_display = serializers.CharField(source='get_part_of_speech_display', read_only=True)
     translations = WordTranslationSerializer(many=True, read_only=True)
     examples = ExampleSerializer(many=True, read_only=True)
@@ -51,9 +52,10 @@ class WordSerializer(serializers.ModelSerializer):
         model = Word
         fields = [
             'id', 'language', 'language_code', 'language_name',
+            'category', 'category_display',
             'text', 'part_of_speech', 'part_of_speech_display',
             'pronunciation', 'audio_url', 'grammar',
-            'difficulty_level', 'is_active',
+            'order', 'difficulty_level', 'is_active',
             'translations', 'examples',
             'created_at', 'updated_at'
         ]
@@ -114,9 +116,9 @@ class WordCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Word
         fields = [
-            'language', 'text', 'part_of_speech',
+            'language', 'category', 'text', 'part_of_speech',
             'pronunciation', 'audio_url', 'grammar',
-            'difficulty_level', 'is_active',
+            'order', 'difficulty_level', 'is_active',
             'translations', 'examples'
         ]
 
@@ -168,9 +170,9 @@ class WordUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Word
         fields = [
-            'text', 'part_of_speech',
+            'category', 'text', 'part_of_speech',
             'pronunciation', 'audio_url', 'grammar',
-            'difficulty_level', 'is_active'
+            'order', 'difficulty_level', 'is_active'
         ]
 
     def validate_difficulty_level(self, value):
@@ -186,6 +188,7 @@ class WordUpdateSerializer(serializers.ModelSerializer):
 class WordListSerializer(serializers.ModelSerializer):
     """단어 목록 Serializer (간소화)"""
     language_code = serializers.CharField(source='language.code', read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
     part_of_speech_display = serializers.CharField(source='get_part_of_speech_display', read_only=True)
     translation_count = serializers.SerializerMethodField()
     example_count = serializers.SerializerMethodField()
@@ -194,8 +197,9 @@ class WordListSerializer(serializers.ModelSerializer):
         model = Word
         fields = [
             'id', 'language', 'language_code',
+            'category', 'category_display',
             'text', 'part_of_speech', 'part_of_speech_display',
-            'difficulty_level', 'is_active',
+            'order', 'difficulty_level', 'is_active',
             'translation_count', 'example_count',
             'created_at'
         ]

@@ -2,6 +2,15 @@ from django.db import models
 from accounts.models import Language
 
 
+class WordCategory(models.TextChoices):
+    """단어 카테고리"""
+    WORD = 'word', '단어'
+    HIRAGANA = 'hiragana', '히라가나'
+    KATAKANA = 'katakana', '가타카나'
+    KANJI = 'kanji', '한자'
+    ALPHABET = 'alphabet', '알파벳'
+
+
 class PartOfSpeech(models.TextChoices):
     """품사"""
     NOUN = 'noun', '명사'
@@ -17,6 +26,7 @@ class PartOfSpeech(models.TextChoices):
     NUMERAL = 'numeral', '수사'
     PARTICLE = 'particle', '조사/불변화사'
     PHRASE = 'phrase', '구/숙어'
+    CHARACTER = 'character', '문자'
     OTHER = 'other', '기타'
 
 
@@ -28,6 +38,13 @@ class Word(models.Model):
         related_name='words',
         verbose_name='언어'
     )
+    category = models.CharField(
+        max_length=20,
+        choices=WordCategory.choices,
+        default=WordCategory.WORD,
+        verbose_name='카테고리',
+        help_text='단어, 히라가나, 가타카나, 한자 등'
+    )
     text = models.CharField(
         max_length=200,
         verbose_name='단어'
@@ -35,6 +52,7 @@ class Word(models.Model):
     part_of_speech = models.CharField(
         max_length=20,
         choices=PartOfSpeech.choices,
+        default=PartOfSpeech.OTHER,
         verbose_name='품사'
     )
     pronunciation = models.CharField(
@@ -50,7 +68,12 @@ class Word(models.Model):
         default=dict,
         blank=True,
         verbose_name='문법 속성',
-        help_text='동사변화, 성별, 복수형 등 언어별 문법 정보'
+        help_text='동사변화, 성별, 복수형, 로마자(romanji), 행(row) 등'
+    )
+    order = models.PositiveIntegerField(
+        default=0,
+        verbose_name='정렬 순서',
+        help_text='문자 학습 시 순서 지정용'
     )
     difficulty_level = models.PositiveSmallIntegerField(
         default=1,
@@ -67,16 +90,17 @@ class Word(models.Model):
     class Meta:
         verbose_name = '단어'
         verbose_name_plural = '단어 목록'
-        ordering = ['-created_at']
+        ordering = ['order', '-created_at']
         indexes = [
             models.Index(fields=['language', 'text']),
+            models.Index(fields=['category']),
             models.Index(fields=['part_of_speech']),
             models.Index(fields=['difficulty_level']),
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=['language', 'text', 'part_of_speech'],
-                name='unique_word_per_language_pos'
+                fields=['language', 'text', 'category'],
+                name='unique_word_per_language_category'
             )
         ]
 

@@ -422,6 +422,17 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label>카테고리</label>
+                            <select id="filter-category">
+                                <option value="">전체</option>
+                                <option value="word">단어</option>
+                                <option value="hiragana">히라가나</option>
+                                <option value="katakana">가타카나</option>
+                                <option value="kanji">한자</option>
+                                <option value="alphabet">알파벳</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>난이도 (1-5)</label>
                             <input type="number" id="filter-difficulty" min="1" max="5" placeholder="전체">
                         </div>
@@ -433,6 +444,7 @@
                                 <option value="verb">verb</option>
                                 <option value="adjective">adjective</option>
                                 <option value="adverb">adverb</option>
+                                <option value="character">character</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -470,12 +482,23 @@
                             </select>
                         </div>
                         <div class="form-group">
+                            <label>카테고리</label>
+                            <select id="create-category">
+                                <option value="word">단어</option>
+                                <option value="hiragana">히라가나</option>
+                                <option value="katakana">가타카나</option>
+                                <option value="kanji">한자</option>
+                                <option value="alphabet">알파벳</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>단어 텍스트 *</label>
                             <input type="text" id="create-text" placeholder="단어">
                         </div>
                         <div class="form-group">
-                            <label>품사 *</label>
+                            <label>품사</label>
                             <select id="create-pos">
+                                <option value="other">other</option>
                                 <option value="noun">noun</option>
                                 <option value="verb">verb</option>
                                 <option value="adjective">adjective</option>
@@ -485,6 +508,7 @@
                                 <option value="interjection">interjection</option>
                                 <option value="pronoun">pronoun</option>
                                 <option value="article">article</option>
+                                <option value="character">character</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -492,7 +516,11 @@
                             <input type="text" id="create-pronunciation" placeholder="/발음/">
                         </div>
                         <div class="form-group">
-                            <label>난이도 (1-5) *</label>
+                            <label>정렬 순서</label>
+                            <input type="number" id="create-order" min="0" value="0" placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label>난이도 (1-5)</label>
                             <input type="number" id="create-difficulty" min="1" max="5" value="1">
                         </div>
                         <div class="form-group">
@@ -890,11 +918,13 @@
             try {
                 const params = new URLSearchParams();
                 const language = document.getElementById('filter-language').value;
+                const category = document.getElementById('filter-category').value;
                 const difficulty = document.getElementById('filter-difficulty').value;
                 const pos = document.getElementById('filter-pos').value;
                 const search = document.getElementById('filter-search').value;
 
                 if (language) params.append('language', language);
+                if (category) params.append('category', category);
                 if (difficulty) params.append('difficulty_level', difficulty);
                 if (pos) params.append('part_of_speech', pos);
                 if (search) params.append('search', search);
@@ -930,9 +960,11 @@
         // 단어 생성
         async function createWord() {
             const language = document.getElementById('create-language').value;
+            const category = document.getElementById('create-category').value;
             const text = document.getElementById('create-text').value;
             const pos = document.getElementById('create-pos').value;
             const pronunciation = document.getElementById('create-pronunciation').value;
+            const order = document.getElementById('create-order').value;
             const difficulty = document.getElementById('create-difficulty').value;
             const active = document.getElementById('create-active').value;
             const grammarText = document.getElementById('create-grammar').value;
@@ -956,10 +988,12 @@
                     headers: getAuthHeaders(),
                     body: JSON.stringify({
                         language: parseInt(language),
+                        category: category,
                         text: text,
                         part_of_speech: pos,
                         pronunciation: pronunciation || null,
                         grammar: grammar,
+                        order: parseInt(order) || 0,
                         difficulty_level: parseInt(difficulty),
                         is_active: active === 'true'
                     })
