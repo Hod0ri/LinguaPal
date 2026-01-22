@@ -4,7 +4,7 @@ from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from accounts.models import User, Language
-from .models import Word, WordTranslation, Example, ExampleTranslation, PartOfSpeech
+from .models import Word, WordTranslation, Example, ExampleTranslation, PartOfSpeech, WordCategory
 
 
 class WordModelTest(TestCase):
@@ -22,6 +22,7 @@ class WordModelTest(TestCase):
         word = Word.objects.create(
             language=self.language,
             text='libro',
+            category=WordCategory.WORD,
             part_of_speech=PartOfSpeech.NOUN,
             pronunciation='/ˈli.βɾo/',
             grammar={'gender': 'masculine', 'plural': 'libros'},
@@ -29,9 +30,34 @@ class WordModelTest(TestCase):
         )
 
         self.assertEqual(word.text, 'libro')
+        self.assertEqual(word.category, WordCategory.WORD)
         self.assertEqual(word.part_of_speech, PartOfSpeech.NOUN)
         self.assertEqual(word.grammar['gender'], 'masculine')
         self.assertTrue(word.is_active)
+
+    def test_hiragana_creation(self):
+        """히라가나 문자 생성 테스트"""
+        japanese = Language.objects.create(
+            code='ja',
+            name_ko='일본어',
+            name_en='Japanese'
+        )
+        char = Word.objects.create(
+            language=japanese,
+            text='あ',
+            category=WordCategory.HIRAGANA,
+            part_of_speech=PartOfSpeech.CHARACTER,
+            pronunciation='a',
+            grammar={'romanji': 'a', 'row': 'あ행'},
+            order=1,
+            difficulty_level=1
+        )
+
+        self.assertEqual(char.text, 'あ')
+        self.assertEqual(char.category, WordCategory.HIRAGANA)
+        self.assertEqual(char.part_of_speech, PartOfSpeech.CHARACTER)
+        self.assertEqual(char.grammar['romanji'], 'a')
+        self.assertEqual(char.order, 1)
 
     def test_word_str(self):
         """단어 문자열 표현 테스트"""
@@ -397,6 +423,21 @@ class AdminWordListCreateAPITest(AdminWordAPITestBase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['data']['words']), 2)
+
+    def test_filter_words_by_category(self):
+        """카테고리로 단어 필터링"""
+        japanese = Language.objects.create(code='ja', name_ko='일본어', name_en='Japanese')
+        Word.objects.create(language=japanese, text='あ', category=WordCategory.HIRAGANA, part_of_speech=PartOfSpeech.CHARACTER)
+        Word.objects.create(language=japanese, text='ア', category=WordCategory.KATAKANA, part_of_speech=PartOfSpeech.CHARACTER)
+        Word.objects.create(language=japanese, text='本', category=WordCategory.WORD, part_of_speech=PartOfSpeech.NOUN)
+
+        self._authenticate_as(self.admin_user)
+        url = reverse('words:admin_word_list')
+        response = self.client.get(url, {'category': 'hiragana'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['data']['words']), 1)
+        self.assertEqual(response.data['data']['words'][0]['text'], 'あ')
 
 
 class AdminWordDetailAPITest(AdminWordAPITestBase):
