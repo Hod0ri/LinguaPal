@@ -304,7 +304,7 @@ def language_list(request):
 @permission_classes([AllowAny])
 def country_list(request):
     """국가 목록 조회"""
-    queryset = Country.objects.all()
+    queryset = Country.objects.all().order_by('name_ko')
     serializer = CountrySerializer(queryset, many=True)
     return APIResponse.success(
         message='Countries retrieved',

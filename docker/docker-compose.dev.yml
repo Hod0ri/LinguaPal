@@ -64,6 +64,24 @@ services:
     tty: true
     command: python manage.py runserver 0.0.0.0:8000
 
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/Dockerfile.frontend.dev
+    container_name: linguapal-frontend-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_BASE_URL=/api/v1
+      - VITE_APP_NAME=LinguaPal
+    depends_on:
+      - web
+    stdin_open: true
+    tty: true
+
 volumes:
   postgres_data:
   minio_data:
