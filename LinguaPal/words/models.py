@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from accounts.models import Language
 
 
@@ -208,3 +209,217 @@ class ExampleTranslation(models.Model):
 
     def __str__(self):
         return f'{self.example.sentence[:30]}... → {self.translated_sentence[:30]}...'
+
+
+# =============================================================================
+# 퀴즈 관련 모델
+# =============================================================================
+
+class GanaCharacterSet(models.TextChoices):
+    """가나 문자 세트"""
+    HIRAGANA = 'hiragana', '히라가나'
+    KATAKANA = 'katakana', '가타카나'
+    ALL = 'all', '전체'
+
+
+class GanaQuizType(models.TextChoices):
+    """가나 퀴즈 유형"""
+    GANA_TO_ROMAJI = 'gana_to_romaji', '가나 → 로마자'
+    ROMAJI_TO_GANA_SELECT = 'romaji_to_gana_select', '로마자 → 가나 (선택)'
+    ROMAJI_TO_GANA_INPUT = 'romaji_to_gana_input', '로마자 → 가나 (입력)'
+
+
+class GanaQuizQuestionCount(models.IntegerChoices):
+    """퀴즈 문제 수"""
+    TEN = 10, '10문제'
+    TWENTY_FIVE = 25, '25문제'
+    ALL = 0, '전체'  # 0은 전체를 의미
+
+
+class GanaQuiz(models.Model):
+    """가나 퀴즈 세션"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gana_quizzes',
+        verbose_name='사용자'
+    )
+    character_set = models.CharField(
+        max_length=20,
+        choices=GanaCharacterSet.choices,
+        verbose_name='문자 세트'
+    )
+    quiz_type = models.CharField(
+        max_length=30,
+        choices=GanaQuizType.choices,
+        verbose_name='퀴즈 유형'
+    )
+    question_count_setting = models.IntegerField(
+        choices=GanaQuizQuestionCount.choices,
+        verbose_name='문제 수 설정'
+    )
+    total_questions = models.PositiveIntegerField(
+        verbose_name='총 문제 수',
+        help_text='실제 출제된 문제 수'
+    )
+    correct_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='정답 수'
+    )
+    current_question = models.PositiveIntegerField(
+        default=1,
+        verbose_name='현재 문제 번호'
+    )
+    is_completed = models.BooleanField(
+        default=False,
+        verbose_name='완료 여부'
+    )
+    started_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='시작 시간'
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='완료 시간'
+    )
+
+    class Meta:
+        verbose_name = '가나 퀴즈'
+        verbose_name_plural = '가나 퀴즈 목록'
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['user', '-started_at']),
+            models.Index(fields=['is_completed']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.email} - {self.get_character_set_display()} {self.get_quiz_type_display()}'
+
+    @property
+    def score_percentage(self):
+        if self.total_questions == 0:
+            return 0
+        return round((self.correct_count / self.total_questions) * 100, 1)
+
+
+class GanaQuizQuestion(models.Model):
+    """가나 퀴즈 문제/답변 기록"""
+    quiz = models.ForeignKey(
+        GanaQuiz,
+        on_delete=models.CASCADE,
+        related_name='questions',
+        verbose_name='퀴즈'
+    )
+    word = models.ForeignKey(
+        Word,
+        on_delete=models.CASCADE,
+        related_name='quiz_questions',
+        verbose_name='문자'
+    )
+    question_number = models.PositiveIntegerField(
+        verbose_name='문제 번호'
+    )
+    choices = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='선택지',
+        help_text='선택형 문제의 경우 선택지 목록'
+    )
+    user_answer = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='사용자 답변'
+    )
+    is_correct = models.BooleanField(
+        null=True,
+        verbose_name='정답 여부'
+    )
+    answered_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='답변 시간'
+    )
+
+    class Meta:
+        verbose_name = '퀴즈 문제'
+        verbose_name_plural = '퀴즈 문제 목록'
+        ordering = ['question_number']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['quiz', 'question_number'],
+                name='unique_question_number_per_quiz'
+            )
+        ]
+
+    def __str__(self):
+        return f'Quiz {self.quiz.id} - Q{self.question_number}: {self.word.text}'
+
+    @property
+    def correct_answer(self):
+        """정답 반환 (퀴즈 유형에 따라)"""
+        if self.quiz.quiz_type == GanaQuizType.GANA_TO_ROMAJI:
+            return self.word.pronunciation
+        else:
+            return self.word.text
+
+
+class UserGanaStats(models.Model):
+    """사용자별 가나 문자 통계"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='gana_stats',
+        verbose_name='사용자'
+    )
+    word = models.ForeignKey(
+        Word,
+        on_delete=models.CASCADE,
+        related_name='user_stats',
+        verbose_name='문자'
+    )
+    total_attempts = models.PositiveIntegerField(
+        default=0,
+        verbose_name='총 시도 횟수'
+    )
+    correct_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='정답 횟수'
+    )
+    incorrect_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='오답 횟수'
+    )
+    last_attempted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='마지막 시도 시간'
+    )
+    last_correct_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='마지막 정답 시간'
+    )
+
+    class Meta:
+        verbose_name = '사용자 가나 통계'
+        verbose_name_plural = '사용자 가나 통계 목록'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'word'],
+                name='unique_user_word_stats'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['user', 'word']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.email} - {self.word.text}: {self.correct_count}/{self.total_attempts}'
+
+    @property
+    def accuracy(self):
+        """정답률"""
+        if self.total_attempts == 0:
+            return 0
+        return round((self.correct_count / self.total_attempts) * 100, 1)

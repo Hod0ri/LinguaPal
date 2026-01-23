@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinguaPal - 가나 퀴즈 테스트</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        h2 {
+            color: #f5576c;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            color: #555;
+            margin: 1.5rem 0 1rem;
+            font-size: 1.1rem;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #f5576c;
+        }
+
+        button {
+            background: #f5576c;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        button:hover {
+            background: #e04050;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        button.secondary {
+            background: #6c757d;
+        }
+
+        button.secondary:hover {
+            background: #5a6268;
+        }
+
+        button.success {
+            background: #28a745;
+        }
+
+        button.success:hover {
+            background: #218838;
+        }
+
+        .result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 10px;
+            display: none;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            display: block;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            display: block;
+        }
+
+        .result pre {
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 0.85rem;
+            font-family: monospace;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #f5576c;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .auth-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .auth-warning a {
+            color: #f5576c;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .user-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .user-status img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* 퀴즈 관련 스타일 */
+        .quiz-container {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .quiz-question {
+            font-size: 5rem;
+            margin: 2rem 0;
+            color: #333;
+        }
+
+        .quiz-choices {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: 2rem 0;
+        }
+
+        .choice-btn {
+            font-size: 2rem;
+            padding: 1rem 2rem;
+            min-width: 100px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            color: #333;
+        }
+
+        .choice-btn:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        .choice-btn.correct {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+
+        .choice-btn.wrong {
+            background: #f8d7da;
+            border-color: #dc3545;
+        }
+
+        .quiz-input {
+            font-size: 2rem;
+            text-align: center;
+            max-width: 200px;
+            margin: 0 auto;
+        }
+
+        .quiz-progress {
+            background: #e9ecef;
+            border-radius: 10px;
+            height: 20px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        .quiz-progress-bar {
+            background: linear-gradient(90deg, #f093fb, #f5576c);
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .quiz-score {
+            font-size: 1.2rem;
+            color: #666;
+            margin: 1rem 0;
+        }
+
+        .quiz-result-display {
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .quiz-result-display h3 {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .quiz-result-display .score {
+            font-size: 4rem;
+            color: #f5576c;
+            font-weight: bold;
+        }
+
+        .answer-feedback {
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            font-size: 1.2rem;
+        }
+
+        .answer-feedback.correct {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .answer-feedback.wrong {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #f5576c;
+        }
+
+        .stat-card .label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .history-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .history-item .info {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.6rem;
+            border-radius: 5px;
+            font-size: 0.8rem;
+        }
+
+        .badge-hiragana {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .badge-katakana {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+
+        .badge-all {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .weak-char {
+            display: inline-block;
+            margin: 0.3rem;
+            padding: 0.5rem 1rem;
+            background: #f8d7da;
+            border-radius: 8px;
+            font-size: 1.5rem;
+        }
+
+        .strong-char {
+            display: inline-block;
+            margin: 0.3rem;
+            padding: 0.5rem 1rem;
+            background: #d4edda;
+            border-radius: 8px;
+            font-size: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <div class="card">
+            <h1>Japanese 가나 퀴즈</h1>
+            <p class="subtitle">히라가나/가타카나 학습 테스트</p>
+
+            <div id="auth-warning" class="auth-warning hidden">
+                Login required. <a href="test_login.html">Go to login page</a> to login first.
+            </div>
+
+            <div id="user-status" class="user-status hidden">
+                <img id="user-image" src="" alt="Profile">
+                <div>
+                    <strong id="user-email">-</strong>
+                </div>
+                <a href="index.html" style="margin-left: auto;">← Main</a>
+            </div>
+        </div>
+
+        <!-- 퀴즈 시작 -->
+        <div class="card" id="quiz-setup-card">
+            <h2>Start New Quiz</h2>
+            <p class="subtitle">POST /api/v1/quiz/gana/start</p>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Character Set</label>
+                    <select id="character-set">
+                        <option value="hiragana">Hiragana only</option>
+                        <option value="katakana">Katakana only</option>
+                        <option value="all">All</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quiz Type</label>
+                    <select id="quiz-type">
+                        <option value="gana_to_romaji">See Gana -> Input Romaji</option>
+                        <option value="romaji_to_gana_select">See Romaji -> Select Gana (3 choices)</option>
+                        <option value="romaji_to_gana_input">See Romaji -> Input Gana</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Number of Questions</label>
+                    <select id="question-count">
+                        <option value="10">10 questions</option>
+                        <option value="25">25 questions</option>
+                        <option value="0">All</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="success" onclick="startQuiz()">Start Quiz</button>
+            <div id="start-result" class="result"></div>
+        </div>
+
+        <!-- 퀴즈 진행 -->
+        <div class="card hidden" id="quiz-play-card">
+            <h2>Quiz in Progress</h2>
+
+            <div class="quiz-container">
+                <div class="quiz-progress">
+                    <div class="quiz-progress-bar" id="progress-bar" style="width: 0%"></div>
+                </div>
+                <div class="quiz-score">
+                    Q<span id="current-q">1</span>/<span id="total-q">10</span> |
+                    Score: <span id="current-score">0</span>
+                </div>
+
+                <div id="question-display" class="quiz-question">あ</div>
+
+                <div id="choices-display" class="quiz-choices hidden">
+                    <!-- 선택지가 여기에 표시됨 -->
+                </div>
+
+                <div id="input-display" class="hidden">
+                    <input type="text" id="answer-input" class="quiz-input" placeholder="Answer">
+                    <br><br>
+                    <button class="success" onclick="submitInputAnswer()">Submit</button>
+                </div>
+
+                <div id="feedback-display" class="answer-feedback hidden"></div>
+
+                <button id="next-btn" class="hidden" onclick="showNextQuestion()">Next Question</button>
+            </div>
+        </div>
+
+        <!-- 퀴즈 결과 -->
+        <div class="card hidden" id="quiz-result-card">
+            <h2>Quiz Complete!</h2>
+            <div class="quiz-result-display">
+                <h3>Your Score</h3>
+                <div class="score" id="final-score">0%</div>
+                <p><span id="final-correct">0</span> correct out of <span id="final-total">0</span> questions</p>
+                <br>
+                <button onclick="showSetup()">Take Another Quiz</button>
+                <button class="secondary" onclick="viewQuizDetail()">View Details</button>
+            </div>
+            <div id="result-detail" class="result"></div>
+        </div>
+
+        <!-- 퀴즈 기록 -->
+        <div class="card">
+            <h2>Quiz History</h2>
+            <p class="subtitle">GET /api/v1/quiz/gana/history</p>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Character Set Filter</label>
+                    <select id="history-character-set">
+                        <option value="">All</option>
+                        <option value="hiragana">Hiragana</option>
+                        <option value="katakana">Katakana</option>
+                        <option value="all">Both</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Completion Filter</label>
+                    <select id="history-completed">
+                        <option value="">All</option>
+                        <option value="true">Completed</option>
+                        <option value="false">In Progress</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Limit</label>
+                    <input type="number" id="history-limit" value="10" min="1" max="50">
+                </div>
+            </div>
+
+            <button onclick="getHistory()">Load History</button>
+            <div id="history-result" class="result"></div>
+            <div id="history-display"></div>
+        </div>
+
+        <!-- 학습 통계 -->
+        <div class="card">
+            <h2>Learning Statistics</h2>
+            <p class="subtitle">GET /api/v1/quiz/gana/stats</p>
+
+            <button onclick="getStats()">Load Stats</button>
+            <div id="stats-result" class="result"></div>
+            <div id="stats-display"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+        // 현재 퀴즈 상태
+        let currentQuiz = null;
+        let currentQuestion = null;
+        let answeredCount = 0;
+
+        function getAccessToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        function getAuthHeaders() {
+            const token = getAccessToken();
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+        }
+
+        function showResult(elementId, type, data) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            if (typeof data === 'object') {
+                element.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } else {
+                element.innerHTML = data;
+            }
+        }
+
+        async function checkAuth() {
+            const token = getAccessToken();
+
+            if (!token) {
+                document.getElementById('auth-warning').classList.remove('hidden');
+                document.getElementById('user-status').classList.add('hidden');
+                return false;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/users/me`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        const data = result.data;
+                        document.getElementById('auth-warning').classList.add('hidden');
+                        document.getElementById('user-status').classList.remove('hidden');
+                        document.getElementById('user-email').textContent = data.email;
+                        document.getElementById('user-image').src = data.profile_image || 'https://via.placeholder.com/40';
+                        return true;
+                    }
+                }
+
+                document.getElementById('auth-warning').classList.remove('hidden');
+                return false;
+            } catch (error) {
+                console.error('Auth check error:', error);
+                return false;
+            }
+        }
+
+        // ========== 퀴즈 시작 ==========
+        async function startQuiz() {
+            const characterSet = document.getElementById('character-set').value;
+            const quizType = document.getElementById('quiz-type').value;
+            const questionCount = document.getElementById('question-count').value;
+
+            showResult('start-result', 'info', '<div class="loading"></div> Starting quiz...');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/quiz/gana/start`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        character_set: characterSet,
+                        quiz_type: quizType,
+                        question_count: parseInt(questionCount)
+                    })
+                });
+
+                const result = await response.json();
+                showResult('start-result', response.ok ? 'success' : 'error', result);
+
+                if (response.ok && result.success) {
+                    currentQuiz = result.data.quiz;
+                    currentQuestion = result.data.current_question;
+                    answeredCount = 0;
+                    showQuizPlay();
+                }
+            } catch (error) {
+                showResult('start-result', 'error', { error: error.message });
+            }
+        }
+
+        function showSetup() {
+            document.getElementById('quiz-setup-card').classList.remove('hidden');
+            document.getElementById('quiz-play-card').classList.add('hidden');
+            document.getElementById('quiz-result-card').classList.add('hidden');
+        }
+
+        function showQuizPlay() {
+            document.getElementById('quiz-setup-card').classList.add('hidden');
+            document.getElementById('quiz-play-card').classList.remove('hidden');
+            document.getElementById('quiz-result-card').classList.add('hidden');
+
+            document.getElementById('total-q').textContent = currentQuiz.total_questions;
+            displayQuestion();
+        }
+
+        function displayQuestion() {
+            if (!currentQuestion) return;
+
+            document.getElementById('current-q').textContent = currentQuestion.question_number;
+            document.getElementById('current-score').textContent = currentQuiz.correct_count;
+
+            const progress = (answeredCount / currentQuiz.total_questions) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+
+            document.getElementById('question-display').textContent = currentQuestion.question;
+
+            // 피드백, 다음 버튼 숨김
+            document.getElementById('feedback-display').classList.add('hidden');
+            document.getElementById('next-btn').classList.add('hidden');
+
+            // 퀴즈 타입에 따른 입력 방식 표시
+            if (currentQuiz.quiz_type === 'romaji_to_gana_select' && currentQuestion.choices && currentQuestion.choices.length > 0) {
+                showChoices(currentQuestion.choices);
+            } else {
+                showInput();
+            }
+        }
+
+        function showChoices(choices) {
+            document.getElementById('choices-display').classList.remove('hidden');
+            document.getElementById('input-display').classList.add('hidden');
+
+            const container = document.getElementById('choices-display');
+            container.innerHTML = choices.map(choice =>
+                `<button class="choice-btn" onclick="submitChoiceAnswer('${choice}')">${choice}</button>`
+            ).join('');
+        }
+
+        function showInput() {
+            document.getElementById('choices-display').classList.add('hidden');
+            document.getElementById('input-display').classList.remove('hidden');
+            document.getElementById('answer-input').value = '';
+            document.getElementById('answer-input').focus();
+        }
+
+        // ========== 답변 제출 ==========
+        async function submitChoiceAnswer(answer) {
+            await submitAnswer(answer);
+        }
+
+        async function submitInputAnswer() {
+            const answer = document.getElementById('answer-input').value.trim();
+            if (!answer) {
+                alert('Please enter an answer');
+                return;
+            }
+            await submitAnswer(answer);
+        }
+
+        async function submitAnswer(answer) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/quiz/gana/${currentQuiz.id}/answer`, {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        question_id: currentQuestion.id,
+                        answer: answer
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    const data = result.data;
+                    answeredCount++;
+                    currentQuiz.correct_count = data.current_score;
+
+                    // 피드백 표시
+                    showFeedback(data.is_correct, data.correct_answer, data.user_answer);
+
+                    // 선택지 버튼 비활성화 및 정답/오답 표시
+                    if (currentQuiz.quiz_type === 'romaji_to_gana_select') {
+                        document.querySelectorAll('.choice-btn').forEach(btn => {
+                            btn.disabled = true;
+                            if (btn.textContent === data.correct_answer) {
+                                btn.classList.add('correct');
+                            } else if (btn.textContent === data.user_answer && !data.is_correct) {
+                                btn.classList.add('wrong');
+                            }
+                        });
+                    }
+
+                    if (data.quiz_completed) {
+                        setTimeout(() => showQuizResult(), 1500);
+                    } else {
+                        currentQuestion = data.next_question;
+                        document.getElementById('next-btn').classList.remove('hidden');
+                    }
+                } else {
+                    alert('Error submitting answer: ' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        function showFeedback(isCorrect, correctAnswer, userAnswer) {
+            const feedback = document.getElementById('feedback-display');
+            feedback.classList.remove('hidden', 'correct', 'wrong');
+            feedback.classList.add(isCorrect ? 'correct' : 'wrong');
+
+            if (isCorrect) {
+                feedback.innerHTML = 'Correct!';
+            } else {
+                feedback.innerHTML = `Wrong! The correct answer is: <strong>${correctAnswer}</strong>`;
+            }
+        }
+
+        function showNextQuestion() {
+            displayQuestion();
+        }
+
+        // ========== 퀴즈 결과 ==========
+        function showQuizResult() {
+            document.getElementById('quiz-setup-card').classList.add('hidden');
+            document.getElementById('quiz-play-card').classList.add('hidden');
+            document.getElementById('quiz-result-card').classList.remove('hidden');
+
+            const percentage = Math.round((currentQuiz.correct_count / currentQuiz.total_questions) * 100);
+            document.getElementById('final-score').textContent = percentage + '%';
+            document.getElementById('final-correct').textContent = currentQuiz.correct_count;
+            document.getElementById('final-total').textContent = currentQuiz.total_questions;
+        }
+
+        async function viewQuizDetail() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/quiz/gana/${currentQuiz.id}`, {
+                    headers: getAuthHeaders()
+                });
+                const result = await response.json();
+                showResult('result-detail', response.ok ? 'success' : 'error', result);
+            } catch (error) {
+                showResult('result-detail', 'error', { error: error.message });
+            }
+        }
+
+        // ========== 퀴즈 기록 ==========
+        async function getHistory() {
+            const params = new URLSearchParams();
+            const characterSet = document.getElementById('history-character-set').value;
+            const completed = document.getElementById('history-completed').value;
+            const limit = document.getElementById('history-limit').value;
+
+            if (characterSet) params.append('character_set', characterSet);
+            if (completed) params.append('is_completed', completed);
+            if (limit) params.append('limit', limit);
+
+            showResult('history-result', 'info', '<div class="loading"></div> Loading...');
+
+            try {
+                const url = `${API_BASE_URL}/quiz/gana/history${params.toString() ? '?' + params.toString() : ''}`;
+                const response = await fetch(url, { headers: getAuthHeaders() });
+                const result = await response.json();
+
+                showResult('history-result', response.ok ? 'success' : 'error', result);
+
+                if (response.ok && result.success) {
+                    displayHistory(result.data.quizzes);
+                }
+            } catch (error) {
+                showResult('history-result', 'error', { error: error.message });
+            }
+        }
+
+        function displayHistory(quizzes) {
+            const container = document.getElementById('history-display');
+
+            if (quizzes.length === 0) {
+                container.innerHTML = '<p style="color: #666; margin-top: 1rem;">No quiz history found.</p>';
+                return;
+            }
+
+            container.innerHTML = quizzes.map(quiz => {
+                const badgeClass = quiz.character_set === 'hiragana' ? 'badge-hiragana' :
+                                   quiz.character_set === 'katakana' ? 'badge-katakana' : 'badge-all';
+                const date = new Date(quiz.started_at).toLocaleString();
+
+                return `
+                    <div class="history-item">
+                        <div class="info">
+                            <span class="badge ${badgeClass}">${quiz.character_set_display}</span>
+                            <span>${quiz.quiz_type_display}</span>
+                            <span>${date}</span>
+                        </div>
+                        <div>
+                            <strong>${quiz.correct_count}/${quiz.total_questions}</strong>
+                            (${quiz.score_percentage}%)
+                            ${quiz.is_completed ? '' : '<span style="color: orange;">[In Progress]</span>'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========== 학습 통계 ==========
+        async function getStats() {
+            showResult('stats-result', 'info', '<div class="loading"></div> Loading...');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/quiz/gana/stats`, {
+                    headers: getAuthHeaders()
+                });
+                const result = await response.json();
+
+                showResult('stats-result', response.ok ? 'success' : 'error', result);
+
+                if (response.ok && result.success) {
+                    displayStats(result.data);
+                }
+            } catch (error) {
+                showResult('stats-result', 'error', { error: error.message });
+            }
+        }
+
+        function displayStats(stats) {
+            const container = document.getElementById('stats-display');
+
+            container.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="value">${stats.total_quizzes}</div>
+                        <div class="label">Total Quizzes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${stats.completed_quizzes}</div>
+                        <div class="label">Completed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${stats.total_questions_answered}</div>
+                        <div class="label">Questions Answered</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${stats.overall_accuracy}%</div>
+                        <div class="label">Overall Accuracy</div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 2rem;">Hiragana Stats</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="value">${stats.hiragana_stats.characters_practiced}</div>
+                        <div class="label">Characters Practiced</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${stats.hiragana_stats.total_attempts}</div>
+                        <div class="label">Attempts</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${stats.hiragana_stats.accuracy}%</div>
+                        <div class="label">Accuracy</div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 2rem;">Katakana Stats</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="value">${stats.katakana_stats.characters_practiced}</div>
+                        <div class="label">Characters Practiced</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${stats.katakana_stats.total_attempts}</div>
+                        <div class="label">Attempts</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="value">${stats.katakana_stats.accuracy}%</div>
+                        <div class="label">Accuracy</div>
+                    </div>
+                </div>
+
+                ${stats.weakest_characters.length > 0 ? `
+                    <h3 style="margin-top: 2rem;">Weakest Characters (Need Practice)</h3>
+                    <div>
+                        ${stats.weakest_characters.map(c =>
+                            `<span class="weak-char">${c.character} (${c.accuracy}%)</span>`
+                        ).join('')}
+                    </div>
+                ` : ''}
+
+                ${stats.strongest_characters.length > 0 ? `
+                    <h3 style="margin-top: 2rem;">Strongest Characters</h3>
+                    <div>
+                        ${stats.strongest_characters.map(c =>
+                            `<span class="strong-char">${c.character} (${c.accuracy}%)</span>`
+                        ).join('')}
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        // Enter 키로 답변 제출
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !document.getElementById('input-display').classList.contains('hidden')) {
+                submitInputAnswer();
+            }
+        });
+
+        // 페이지 로드 시 초기화
+        window.addEventListener('load', async () => {
+            await checkAuth();
+        });
+    </script>
+</body>
+</html>
