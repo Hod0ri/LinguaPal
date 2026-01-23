@@ -1,8 +1,29 @@
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Header from '../components/Header'
+import QuizSettingsModal from '../components/QuizSettingsModal'
+import { quizApi } from '../services/api'
+import type { QuizStats } from '../types'
 
 export default function MainPage() {
   const { profile } = useAuth()
+  const [showQuizModal, setShowQuizModal] = useState(false)
+  const [stats, setStats] = useState<QuizStats | null>(null)
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const response = await quizApi.getQuizStats()
+        if (response.data.success) {
+          setStats(response.data.data)
+        }
+      } catch {
+        // Handle error silently
+      }
+    }
+    loadStats()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
@@ -77,7 +98,7 @@ export default function MainPage() {
             <p className="text-slate-500 text-sm mb-5">
               배운 단어를 테스트해보세요.
             </p>
-            <button className="w-full btn-secondary">
+            <button onClick={() => setShowQuizModal(true)} className="w-full btn-secondary">
               퀴즈 풀기
             </button>
           </div>
@@ -85,34 +106,43 @@ export default function MainPage() {
 
         {/* Stats Section */}
         <div className="card p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800">학습 통계</h2>
             </div>
-            <h2 className="text-lg font-semibold text-slate-800">학습 통계</h2>
+            <Link to="/quiz/dashboard" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+              자세히 보기
+            </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-5 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100/50">
-              <p className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">0</p>
-              <p className="text-sm text-slate-500 mt-1">학습한 단어</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                {stats?.total_questions_answered || 0}
+              </p>
+              <p className="text-sm text-slate-500 mt-1">푼 문제</p>
             </div>
             <div className="text-center p-5 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100/50">
-              <p className="text-4xl font-bold text-emerald-600">0</p>
+              <p className="text-4xl font-bold text-emerald-600">{stats?.completed_quizzes || 0}</p>
               <p className="text-sm text-slate-500 mt-1">완료한 퀴즈</p>
             </div>
             <div className="text-center p-5 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-100/50">
-              <p className="text-4xl font-bold text-amber-600">0</p>
-              <p className="text-sm text-slate-500 mt-1">연속 학습일</p>
+              <p className="text-4xl font-bold text-amber-600">{stats?.total_correct || 0}</p>
+              <p className="text-sm text-slate-500 mt-1">맞은 문제</p>
             </div>
             <div className="text-center p-5 bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl border border-rose-100/50">
-              <p className="text-4xl font-bold text-rose-600">0%</p>
+              <p className="text-4xl font-bold text-rose-600">{stats?.overall_accuracy?.toFixed(0) || 0}%</p>
               <p className="text-sm text-slate-500 mt-1">정답률</p>
             </div>
           </div>
         </div>
       </main>
+
+      <QuizSettingsModal isOpen={showQuizModal} onClose={() => setShowQuizModal(false)} />
     </div>
   )
 }

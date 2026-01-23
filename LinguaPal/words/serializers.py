@@ -1,5 +1,10 @@
 from rest_framework import serializers
-from .models import Word, WordTranslation, Example, ExampleTranslation, PartOfSpeech, WordCategory
+from .models import (
+    Word, WordTranslation, Example, ExampleTranslation,
+    PartOfSpeech, WordCategory,
+    GanaQuiz, GanaQuizQuestion, UserGanaStats,
+    GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount
+)
 from accounts.models import Language
 
 
@@ -209,3 +214,144 @@ class WordListSerializer(serializers.ModelSerializer):
 
     def get_example_count(self, obj):
         return obj.examples.count()
+
+
+# =============================================================================
+# 퀴즈 API Serializers
+# =============================================================================
+
+class GanaQuizStartRequestSerializer(serializers.Serializer):
+    """퀴즈 시작 요청 Serializer"""
+    character_set = serializers.ChoiceField(
+        choices=GanaCharacterSet.choices,
+        help_text='문자 세트: hiragana, katakana, all'
+    )
+    quiz_type = serializers.ChoiceField(
+        choices=GanaQuizType.choices,
+        help_text='퀴즈 유형: gana_to_romaji, romaji_to_gana_select, romaji_to_gana_input'
+    )
+    question_count = serializers.ChoiceField(
+        choices=GanaQuizQuestionCount.choices,
+        help_text='문제 수: 10, 25, 0(전체)'
+    )
+
+
+class GanaQuizQuestionSerializer(serializers.ModelSerializer):
+    """퀴즈 문제 Serializer (출제용)"""
+    question = serializers.SerializerMethodField()
+    correct_answer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GanaQuizQuestion
+        fields = ['id', 'question_number', 'question', 'choices', 'user_answer', 'is_correct', 'correct_answer', 'answered_at']
+
+    def get_question(self, obj):
+        """문제 내용 반환 (퀴즈 유형에 따라)"""
+        if obj.quiz.quiz_type == GanaQuizType.GANA_TO_ROMAJI:
+            return obj.word.text  # 가나 문자 보여주기
+        else:
+            return obj.word.pronunciation  # 로마자 보여주기
+
+    def get_correct_answer(self, obj):
+        """정답 반환 (퀴즈 완료 후에만)"""
+        if obj.quiz.is_completed or obj.is_correct is not None:
+            return obj.correct_answer
+        return None
+
+
+class GanaQuizQuestionCurrentSerializer(serializers.ModelSerializer):
+    """현재 문제 Serializer (정답 숨김)"""
+    question = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GanaQuizQuestion
+        fields = ['id', 'question_number', 'question', 'choices']
+
+    def get_question(self, obj):
+        if obj.quiz.quiz_type == GanaQuizType.GANA_TO_ROMAJI:
+            return obj.word.text
+        else:
+            return obj.word.pronunciation
+
+
+class GanaQuizSerializer(serializers.ModelSerializer):
+    """퀴즈 세션 Serializer"""
+    character_set_display = serializers.CharField(source='get_character_set_display', read_only=True)
+    quiz_type_display = serializers.CharField(source='get_quiz_type_display', read_only=True)
+    score_percentage = serializers.FloatField(read_only=True)
+    questions = GanaQuizQuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = GanaQuiz
+        fields = [
+            'id', 'character_set', 'character_set_display',
+            'quiz_type', 'quiz_type_display',
+            'question_count_setting', 'total_questions',
+            'correct_count', 'current_question',
+            'is_completed', 'score_percentage',
+            'started_at', 'completed_at',
+            'questions'
+        ]
+
+
+class GanaQuizListSerializer(serializers.ModelSerializer):
+    """퀴즈 목록 Serializer (간소화)"""
+    character_set_display = serializers.CharField(source='get_character_set_display', read_only=True)
+    quiz_type_display = serializers.CharField(source='get_quiz_type_display', read_only=True)
+    score_percentage = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = GanaQuiz
+        fields = [
+            'id', 'character_set', 'character_set_display',
+            'quiz_type', 'quiz_type_display',
+            'total_questions', 'correct_count',
+            'is_completed', 'score_percentage',
+            'started_at', 'completed_at'
+        ]
+
+
+class GanaQuizAnswerRequestSerializer(serializers.Serializer):
+    """퀴즈 답변 요청 Serializer"""
+    question_id = serializers.IntegerField(help_text='문제 ID')
+    answer = serializers.CharField(help_text='사용자 답변')
+
+
+class GanaQuizAnswerResponseSerializer(serializers.Serializer):
+    """퀴즈 답변 응답 Serializer"""
+    is_correct = serializers.BooleanField()
+    correct_answer = serializers.CharField()
+    user_answer = serializers.CharField()
+    next_question = GanaQuizQuestionCurrentSerializer(allow_null=True)
+    quiz_completed = serializers.BooleanField()
+    current_score = serializers.IntegerField()
+    total_answered = serializers.IntegerField()
+
+
+class UserGanaStatsSerializer(serializers.ModelSerializer):
+    """사용자 가나 통계 Serializer"""
+    character = serializers.CharField(source='word.text', read_only=True)
+    pronunciation = serializers.CharField(source='word.pronunciation', read_only=True)
+    category = serializers.CharField(source='word.category', read_only=True)
+    accuracy = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = UserGanaStats
+        fields = [
+            'id', 'character', 'pronunciation', 'category',
+            'total_attempts', 'correct_count', 'incorrect_count',
+            'accuracy', 'last_attempted_at', 'last_correct_at'
+        ]
+
+
+class UserGanaStatsSummarySerializer(serializers.Serializer):
+    """사용자 가나 통계 요약 Serializer"""
+    total_quizzes = serializers.IntegerField()
+    completed_quizzes = serializers.IntegerField()
+    total_questions_answered = serializers.IntegerField()
+    total_correct = serializers.IntegerField()
+    overall_accuracy = serializers.FloatField()
+    hiragana_stats = serializers.DictField()
+    katakana_stats = serializers.DictField()
+    weakest_characters = UserGanaStatsSerializer(many=True)
+    strongest_characters = UserGanaStatsSerializer(many=True)

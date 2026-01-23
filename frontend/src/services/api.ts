@@ -1,5 +1,21 @@
 import axios from 'axios'
-import type { ApiResponse, AuthTokens, User, UserProfile, Language, Country } from '../types'
+import type {
+  ApiResponse,
+  AuthTokens,
+  User,
+  UserProfile,
+  Language,
+  Country,
+  QuizStartRequest,
+  QuizStartResponse,
+  QuizAnswerRequest,
+  QuizAnswerResponse,
+  GanaQuiz,
+  GanaQuizListItem,
+  CurrentQuestion,
+  QuizProgress,
+  QuizStats,
+} from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
@@ -85,6 +101,32 @@ export const userApi = {
 export const masterApi = {
   getLanguages: () => api.get<ApiResponse<{ languages: Language[]; total_count: number }>>('/master/languages'),
   getCountries: () => api.get<ApiResponse<{ countries: Country[]; total_count: number }>>('/master/countries'),
+}
+
+// Quiz API
+export const quizApi = {
+  startQuiz: (data: QuizStartRequest) =>
+    api.post<ApiResponse<QuizStartResponse>>('/quiz/gana/start', data),
+
+  submitAnswer: (quizId: number, data: QuizAnswerRequest) =>
+    api.post<ApiResponse<QuizAnswerResponse>>(`/quiz/gana/${quizId}/answer`, data),
+
+  getQuizDetail: (quizId: number) =>
+    api.get<ApiResponse<GanaQuiz>>(`/quiz/gana/${quizId}`),
+
+  getCurrentQuestion: (quizId: number) =>
+    api.get<ApiResponse<{ question: CurrentQuestion; progress: QuizProgress }>>(`/quiz/gana/${quizId}/current`),
+
+  getQuizHistory: (params?: {
+    character_set?: string
+    quiz_type?: string
+    is_completed?: boolean
+    limit?: number
+  }) =>
+    api.get<ApiResponse<{ quizzes: GanaQuizListItem[]; total_count: number }>>('/quiz/gana/history', { params }),
+
+  getQuizStats: () =>
+    api.get<ApiResponse<QuizStats>>('/quiz/gana/stats'),
 }
 
 export default api

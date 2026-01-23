@@ -5,6 +5,9 @@ import LoginPage from './pages/LoginPage'
 import CreateProfilePage from './pages/CreateProfilePage'
 import MainPage from './pages/MainPage'
 import ProfilePage from './pages/ProfilePage'
+import QuizPage from './pages/QuizPage'
+import QuizResultPage from './pages/QuizResultPage'
+import QuizDashboardPage from './pages/QuizDashboardPage'
 
 function App() {
   const { isLoading } = useAuth()
@@ -41,6 +44,30 @@ function App() {
         element={
           <ProtectedRoute>
             <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/quiz/dashboard"
+        element={
+          <ProtectedRoute>
+            <QuizDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/quiz/result/:quizId"
+        element={
+          <ProtectedRoute>
+            <QuizResultPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/quiz/:quizId"
+        element={
+          <ProtectedRoute>
+            <QuizPage />
           </ProtectedRoute>
         }
       />
