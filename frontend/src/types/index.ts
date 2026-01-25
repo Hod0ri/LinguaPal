@@ -155,3 +155,108 @@ export interface QuizStats {
   weakest_characters: UserGanaStats[]
   strongest_characters: UserGanaStats[]
 }
+
+// ============= Word Quiz Types =============
+export type WordQuizType = 'word_to_native' | 'native_to_word_select' | 'native_to_word_input'
+export type WordQuizQuestionCount = '10' | '25' | '0'
+
+export interface WordQuizQuestion {
+  id: number
+  question_number: number
+  question: string
+  choices: string[] | null
+  user_answer: string | null
+  is_correct: boolean | null
+  correct_answer?: string
+  answered_at: string | null
+}
+
+export interface WordQuiz {
+  id: number
+  learning_language: number
+  learning_language_code: string
+  learning_language_name: string
+  native_language: number
+  native_language_code: string
+  native_language_name: string
+  quiz_type: WordQuizType
+  quiz_type_display: string
+  question_count_setting: number
+  total_questions: number
+  correct_count: number
+  current_question: number
+  is_completed: boolean
+  score_percentage: number
+  started_at: string
+  completed_at: string | null
+  questions: WordQuizQuestion[]
+}
+
+export interface WordQuizListItem {
+  id: number
+  learning_language: number
+  learning_language_code: string
+  learning_language_name: string
+  quiz_type: WordQuizType
+  quiz_type_display: string
+  total_questions: number
+  correct_count: number
+  is_completed: boolean
+  score_percentage: number
+  started_at: string
+  completed_at: string | null
+}
+
+export interface WordQuizStartRequest {
+  learning_language: string
+  quiz_type: WordQuizType
+  question_count: WordQuizQuestionCount
+}
+
+export interface WordQuizStartResponse {
+  quiz: WordQuiz
+  current_question: CurrentQuestion
+}
+
+export interface WordQuizAnswerRequest {
+  question_id: number
+  answer: string
+}
+
+export interface WordQuizAnswerResponse {
+  is_correct: boolean
+  correct_answer: string
+  user_answer: string
+  next_question: CurrentQuestion | null
+  quiz_completed: boolean
+  current_score: number
+  total_answered: number
+}
+
+export interface UserWordStats {
+  word_text: string
+  word_language: string
+  total_attempts: number
+  correct_count: number
+  incorrect_count: number
+  accuracy: number
+}
+
+export interface LanguageStats {
+  language_name: string
+  total_attempts: number
+  correct_count: number
+  accuracy: number
+  quiz_count: number
+}
+
+export interface WordQuizStats {
+  total_quizzes: number
+  completed_quizzes: number
+  total_questions_answered: number
+  total_correct: number
+  overall_accuracy: number
+  language_stats: Record<string, LanguageStats>
+  weakest_words: UserWordStats[]
+  strongest_words: UserWordStats[]
+}

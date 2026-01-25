@@ -1,0 +1,232 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { wordQuizApi, userApi } from '../services/api'
+import type { WordQuizType, WordQuizQuestionCount, Language } from '../types'
+
+interface WordQuizSettingsModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+const QUIZ_TYPES: { value: WordQuizType; label: string; description: string }[] = [
+  { value: 'word_to_native', label: '단어 -> 모국어', description: '학습 언어 단어를 보고 모국어 뜻 입력' },
+  { value: 'native_to_word_select', label: '모국어 -> 단어 (선택)', description: '모국어 뜻을 보고 단어 선택' },
+  { value: 'native_to_word_input', label: '모국어 -> 단어 (입력)', description: '모국어 뜻을 보고 단어 입력' },
+]
+
+const QUESTION_COUNTS: { value: WordQuizQuestionCount; label: string }[] = [
+  { value: '10', label: '10문제' },
+  { value: '25', label: '25문제' },
+  { value: '0', label: '전체' },
+]
+
+export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSettingsModalProps) {
+  const navigate = useNavigate()
+  const [learningLanguages, setLearningLanguages] = useState<Language[]>([])
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('')
+  const [quizType, setQuizType] = useState<WordQuizType>('word_to_native')
+  const [questionCount, setQuestionCount] = useState<WordQuizQuestionCount>('10')
+  const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      loadUserProfile()
+    }
+  }, [isOpen])
+
+  const loadUserProfile = async () => {
+    setIsLoadingProfile(true)
+    try {
+      const response = await userApi.getProfile()
+      if (response.data.success && response.data.data.learning_languages) {
+        const languages = response.data.data.learning_languages
+        setLearningLanguages(languages)
+        if (languages.length > 0) {
+          setSelectedLanguage(languages[0].code)
+        }
+      }
+    } catch {
+      setError('프로필을 불러오는데 실패했습니다.')
+    } finally {
+      setIsLoadingProfile(false)
+    }
+  }
+
+  const handleStartQuiz = async () => {
+    if (!selectedLanguage) {
+      setError('학습 언어를 선택해주세요.')
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await wordQuizApi.startQuiz({
+        learning_language: selectedLanguage,
+        quiz_type: quizType,
+        question_count: questionCount,
+      })
+
+      if (response.data.success) {
+        const quizId = response.data.data.quiz.id
+        onClose()
+        navigate(`/word-quiz/${quizId}`)
+      }
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosErr = err as { response?: { data?: { message?: string } } }
+        setError(axiosErr.response?.data?.message || '퀴즈를 시작할 수 없습니다.')
+      } else {
+        setError('퀴즈를 시작할 수 없습니다.')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity"
+          onClick={onClose}
+        />
+
+        <div className="relative w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-xl transition-all">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-slate-800">단어 퀴즈 설정</h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+
+          {isLoadingProfile ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+            </div>
+          ) : learningLanguages.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-slate-500 mb-4">학습 중인 언어가 없습니다.</p>
+              <p className="text-sm text-slate-400">프로필에서 학습 언어를 추가해주세요.</p>
+            </div>
+          ) : (
+            <>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-3">학습 언어</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {learningLanguages.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => setSelectedLanguage(lang.code)}
+                      className={`p-3 rounded-xl border-2 transition-all text-center ${
+                        selectedLanguage === lang.code
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                      }`}
+                    >
+                      <div className="font-medium text-sm">{lang.name_ko}</div>
+                      <div className="text-xs mt-1 opacity-70">{lang.code.toUpperCase()}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-3">퀴즈 유형</label>
+                <div className="space-y-2">
+                  {QUIZ_TYPES.map((type) => (
+                    <button
+                      key={type.value}
+                      onClick={() => setQuizType(type.value)}
+                      className={`w-full p-3 rounded-xl border-2 transition-all text-left ${
+                        quizType === type.value
+                          ? 'border-emerald-500 bg-emerald-50'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className={`font-medium text-sm ${quizType === type.value ? 'text-emerald-700' : 'text-slate-700'}`}>
+                        {type.label}
+                      </div>
+                      <div className={`text-xs mt-1 ${quizType === type.value ? 'text-emerald-600' : 'text-slate-500'}`}>
+                        {type.description}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-3">문제 수</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {QUESTION_COUNTS.map((count) => (
+                    <button
+                      key={count.value}
+                      onClick={() => setQuestionCount(count.value)}
+                      className={`p-3 rounded-xl border-2 transition-all text-center ${
+                        questionCount === count.value
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                      }`}
+                    >
+                      <div className="font-medium">{count.label}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={onClose}
+                  className="flex-1 btn-secondary"
+                  disabled={isLoading}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleStartQuiz}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
+                  disabled={isLoading || !selectedLanguage}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      시작 중...
+                    </span>
+                  ) : (
+                    '퀴즈 시작'
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

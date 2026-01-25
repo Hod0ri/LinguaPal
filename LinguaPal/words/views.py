@@ -11,7 +11,9 @@ from accounts.utils import APIResponse, ErrorCode
 from .models import (
     Word, WordTranslation, Example, ExampleTranslation,
     GanaQuiz, GanaQuizQuestion, UserGanaStats,
-    WordCategory, GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount
+    WordCategory, GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount,
+    WordQuiz, WordQuizQuestion, UserWordStats,
+    WordQuizType, WordQuizQuestionCount
 )
 from .serializers import (
     WordSerializer,
@@ -33,6 +35,15 @@ from .serializers import (
     GanaQuizAnswerResponseSerializer,
     UserGanaStatsSerializer,
     UserGanaStatsSummarySerializer,
+    WordQuizStartRequestSerializer,
+    WordQuizSerializer,
+    WordQuizListSerializer,
+    WordQuizQuestionSerializer,
+    WordQuizQuestionCurrentSerializer,
+    WordQuizAnswerRequestSerializer,
+    WordQuizAnswerResponseSerializer,
+    UserWordStatsSerializer,
+    WordQuizStatsSummarySerializer,
 )
 
 
@@ -916,5 +927,466 @@ def quiz_stats(request):
             'katakana_stats': katakana_stats,
             'weakest_characters': UserGanaStatsSerializer(weakest, many=True).data,
             'strongest_characters': UserGanaStatsSerializer(strongest, many=True).data
+        }
+    )
+
+
+# =============================================================================
+# 단어 퀴즈 API
+# =============================================================================
+
+def get_word_quiz_words(language):
+    """학습 언어에 해당하는 단어 조회 (category=word)"""
+    return Word.objects.filter(
+        language=language,
+        category=WordCategory.WORD,
+        is_active=True
+    ).prefetch_related('translations')
+
+
+def generate_word_choices(correct_word, all_words, quiz_type, native_language):
+    """선택형 문제의 선택지 생성"""
+    other_words = list(all_words.exclude(id=correct_word.id))
+    if len(other_words) < 2:
+        other_words = list(all_words.exclude(id=correct_word.id))
+
+    wrong_choices = random.sample(other_words, min(2, len(other_words)))
+
+    if quiz_type == WordQuizType.NATIVE_TO_WORD_SELECT:
+        # 모국어 보고 단어 선택 -> 선택지는 학습 언어 단어들
+        choices = [correct_word.text] + [w.text for w in wrong_choices]
+    else:
+        choices = []
+
+    random.shuffle(choices)
+    return choices
+
+
+@extend_schema(
+    tags=['단어 퀴즈'],
+    summary="단어 퀴즈 시작",
+    description="""
+    새로운 단어 퀴즈를 시작합니다.
+
+    **퀴즈 유형 (quiz_type):**
+    - `word_to_native`: 외국어 단어를 보고 모국어 뜻 입력
+    - `native_to_word_select`: 모국어 뜻을 보고 외국어 단어 선택 (3지선다)
+    - `native_to_word_input`: 모국어 뜻을 보고 외국어 단어 입력
+
+    **문제 수 (question_count):**
+    - `10`: 10문제
+    - `25`: 25문제
+    - `0`: 전체
+    """,
+    request=WordQuizStartRequestSerializer,
+    responses={201: WordQuizSerializer},
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def word_quiz_start(request):
+    """단어 퀴즈 시작"""
+    serializer = WordQuizStartRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return APIResponse.validation_error(
+            errors=serializer.errors,
+            message='Validation failed'
+        )
+
+    learning_language_id = serializer.validated_data['learning_language']
+    quiz_type = serializer.validated_data['quiz_type']
+    question_count_setting = int(serializer.validated_data['question_count'])
+
+    # 학습 언어 조회
+    from accounts.models import Language
+    learning_language = get_object_or_404(Language, pk=learning_language_id)
+
+    # 사용자의 모국어 조회 (프로필의 국가에서)
+    user_profile = getattr(request.user, 'profile', None)
+    if not user_profile:
+        return APIResponse.error(
+            message='프로필이 설정되지 않았습니다.',
+            error_code=ErrorCode.NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # 국가 코드에서 언어 코드로 매핑
+    COUNTRY_TO_LANGUAGE = {
+        'KR': 'ko',  # 한국 → 한국어
+        'JP': 'ja',  # 일본 → 일본어
+        'US': 'en',  # 미국 → 영어
+        'GB': 'en',  # 영국 → 영어
+        'ES': 'es',  # 스페인 → 스페인어
+        'CN': 'zh',  # 중국 → 중국어
+    }
+
+    native_language = None
+    if user_profile.country:
+        lang_code = COUNTRY_TO_LANGUAGE.get(user_profile.country.code)
+        if lang_code:
+            native_language = Language.objects.filter(code=lang_code).first()
+
+    if not native_language:
+        # 기본값으로 한국어 사용
+        native_language = Language.objects.filter(code='ko').first()
+        if not native_language:
+            return APIResponse.error(
+                message='모국어를 설정할 수 없습니다.',
+                error_code=ErrorCode.NOT_FOUND,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+    # 단어 조회 (학습 언어의 단어 중 모국어 번역이 있는 것만)
+    all_words = get_word_quiz_words(learning_language).filter(
+        translations__language=native_language
+    ).distinct()
+
+    word_list = list(all_words)
+
+    if not word_list:
+        return APIResponse.error(
+            message='해당 언어에 대한 단어가 없습니다.',
+            error_code=ErrorCode.NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    # 문제 수 결정
+    if question_count_setting == 0:
+        total_questions = len(word_list)
+    else:
+        total_questions = min(question_count_setting, len(word_list))
+
+    # 문제 선택 (랜덤)
+    selected_words = random.sample(word_list, total_questions)
+
+    # 퀴즈 세션 생성
+    quiz = WordQuiz.objects.create(
+        user=request.user,
+        learning_language=learning_language,
+        native_language=native_language,
+        quiz_type=quiz_type,
+        question_count_setting=question_count_setting,
+        total_questions=total_questions
+    )
+
+    # 문제 생성
+    for i, word in enumerate(selected_words, 1):
+        choices = []
+        if quiz_type == WordQuizType.NATIVE_TO_WORD_SELECT:
+            choices = generate_word_choices(word, all_words, quiz_type, native_language)
+
+        WordQuizQuestion.objects.create(
+            quiz=quiz,
+            word=word,
+            question_number=i,
+            choices=choices
+        )
+
+    # 첫 번째 문제 포함하여 응답
+    response_serializer = WordQuizSerializer(quiz)
+    first_question = quiz.questions.first()
+
+    return APIResponse.success(
+        message='Word quiz started',
+        data={
+            'quiz': response_serializer.data,
+            'current_question': WordQuizQuestionCurrentSerializer(first_question).data if first_question else None
+        },
+        status_code=status.HTTP_201_CREATED
+    )
+
+
+@extend_schema(
+    tags=['단어 퀴즈'],
+    summary="단어 퀴즈 답변 제출",
+    description="현재 문제에 대한 답변을 제출합니다.",
+    request=WordQuizAnswerRequestSerializer,
+    responses={200: WordQuizAnswerResponseSerializer},
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def word_quiz_answer(request, quiz_id):
+    """단어 퀴즈 답변 제출"""
+    quiz = get_object_or_404(WordQuiz, pk=quiz_id, user=request.user)
+
+    if quiz.is_completed:
+        return APIResponse.error(
+            message='Quiz is already completed',
+            error_code=ErrorCode.INVALID_INPUT,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    serializer = WordQuizAnswerRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return APIResponse.validation_error(
+            errors=serializer.errors,
+            message='Validation failed'
+        )
+
+    question_id = serializer.validated_data['question_id']
+    user_answer = serializer.validated_data['answer'].strip()
+
+    # 문제 조회
+    question = get_object_or_404(
+        WordQuizQuestion,
+        pk=question_id,
+        quiz=quiz
+    )
+
+    if question.is_correct is not None:
+        return APIResponse.error(
+            message='This question has already been answered',
+            error_code=ErrorCode.INVALID_INPUT,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # 정답 확인
+    correct_answer = question.get_correct_answer(quiz.native_language)
+    is_correct = user_answer.lower() == correct_answer.lower()
+
+    # 문제 업데이트
+    question.user_answer = user_answer
+    question.is_correct = is_correct
+    question.answered_at = timezone.now()
+    question.save()
+
+    # 퀴즈 통계 업데이트
+    if is_correct:
+        quiz.correct_count += 1
+
+    quiz.current_question += 1
+
+    # 사용자 단어 통계 업데이트
+    user_stats, _ = UserWordStats.objects.get_or_create(
+        user=request.user,
+        word=question.word
+    )
+    user_stats.total_attempts += 1
+    user_stats.last_attempted_at = timezone.now()
+    if is_correct:
+        user_stats.correct_count += 1
+        user_stats.last_correct_at = timezone.now()
+    else:
+        user_stats.incorrect_count += 1
+    user_stats.save()
+
+    # 다음 문제 확인
+    next_question = quiz.questions.filter(is_correct__isnull=True).first()
+    quiz_completed = next_question is None
+
+    if quiz_completed:
+        quiz.is_completed = True
+        quiz.completed_at = timezone.now()
+
+    quiz.save()
+
+    return APIResponse.success(
+        message='Answer submitted',
+        data={
+            'is_correct': is_correct,
+            'correct_answer': correct_answer,
+            'user_answer': user_answer,
+            'next_question': WordQuizQuestionCurrentSerializer(next_question).data if next_question else None,
+            'quiz_completed': quiz_completed,
+            'current_score': quiz.correct_count,
+            'total_answered': quiz.questions.filter(is_correct__isnull=False).count()
+        }
+    )
+
+
+@extend_schema(
+    tags=['단어 퀴즈'],
+    summary="단어 퀴즈 상세 조회",
+    description="특정 퀴즈의 상세 정보와 모든 문제/답변을 조회합니다.",
+    responses={200: WordQuizSerializer},
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def word_quiz_detail(request, quiz_id):
+    """단어 퀴즈 상세 조회"""
+    quiz = get_object_or_404(WordQuiz, pk=quiz_id, user=request.user)
+    serializer = WordQuizSerializer(quiz)
+    return APIResponse.success(
+        message='Word quiz retrieved',
+        data=serializer.data
+    )
+
+
+@extend_schema(
+    tags=['단어 퀴즈'],
+    summary="현재 문제 조회",
+    description="진행 중인 퀴즈의 현재 문제를 조회합니다.",
+    responses={200: WordQuizQuestionCurrentSerializer},
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def word_quiz_current_question(request, quiz_id):
+    """현재 문제 조회"""
+    quiz = get_object_or_404(WordQuiz, pk=quiz_id, user=request.user)
+
+    if quiz.is_completed:
+        return APIResponse.error(
+            message='Quiz is already completed',
+            error_code=ErrorCode.INVALID_INPUT,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    current_question = quiz.questions.filter(is_correct__isnull=True).first()
+
+    if not current_question:
+        return APIResponse.error(
+            message='No more questions',
+            error_code=ErrorCode.NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    return APIResponse.success(
+        message='Current question retrieved',
+        data={
+            'question': WordQuizQuestionCurrentSerializer(current_question).data,
+            'progress': {
+                'current': quiz.questions.filter(is_correct__isnull=False).count() + 1,
+                'total': quiz.total_questions,
+                'correct_so_far': quiz.correct_count
+            }
+        }
+    )
+
+
+@extend_schema(
+    tags=['단어 퀴즈'],
+    summary="단어 퀴즈 기록 조회",
+    description="사용자의 단어 퀴즈 기록을 조회합니다.",
+    parameters=[
+        OpenApiParameter(name='learning_language', description='학습 언어 코드 필터', required=False, type=str),
+        OpenApiParameter(name='quiz_type', description='퀴즈 유형 필터', required=False, type=str),
+        OpenApiParameter(name='is_completed', description='완료 여부 필터', required=False, type=bool),
+        OpenApiParameter(name='limit', description='조회 개수 (기본: 20)', required=False, type=int),
+    ],
+    responses={200: WordQuizListSerializer(many=True)},
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def word_quiz_history(request):
+    """단어 퀴즈 기록 조회"""
+    queryset = WordQuiz.objects.filter(user=request.user).select_related('learning_language')
+
+    # 필터링
+    learning_language = request.query_params.get('learning_language')
+    if learning_language:
+        queryset = queryset.filter(learning_language__code=learning_language)
+
+    quiz_type = request.query_params.get('quiz_type')
+    if quiz_type:
+        queryset = queryset.filter(quiz_type=quiz_type)
+
+    is_completed = request.query_params.get('is_completed')
+    if is_completed is not None:
+        queryset = queryset.filter(is_completed=is_completed.lower() == 'true')
+
+    # 제한
+    limit = int(request.query_params.get('limit', 20))
+    queryset = queryset[:limit]
+
+    serializer = WordQuizListSerializer(queryset, many=True)
+    return APIResponse.success(
+        message='Word quiz history retrieved',
+        data={
+            'quizzes': serializer.data,
+            'total_count': WordQuiz.objects.filter(user=request.user).count()
+        }
+    )
+
+
+@extend_schema(
+    tags=['단어 퀴즈'],
+    summary="단어 학습 통계 조회",
+    description="사용자의 단어 학습 통계를 조회합니다.",
+    parameters=[
+        OpenApiParameter(name='learning_language', description='학습 언어 코드 필터', required=False, type=str),
+    ],
+    responses={200: WordQuizStatsSummarySerializer},
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def word_quiz_stats(request):
+    """단어 학습 통계 조회"""
+    user = request.user
+
+    # 퀴즈 통계 기본 쿼리
+    quiz_queryset = WordQuiz.objects.filter(user=user)
+
+    # 언어 필터
+    learning_language = request.query_params.get('learning_language')
+    if learning_language:
+        quiz_queryset = quiz_queryset.filter(learning_language__code=learning_language)
+
+    quiz_stats = quiz_queryset.aggregate(
+        total_quizzes=Count('id'),
+        completed_quizzes=Count('id', filter=Q(is_completed=True)),
+        total_correct=Sum('correct_count'),
+        total_questions=Sum('total_questions')
+    )
+
+    total_quizzes = quiz_stats['total_quizzes'] or 0
+    completed_quizzes = quiz_stats['completed_quizzes'] or 0
+    total_correct = quiz_stats['total_correct'] or 0
+    total_questions = quiz_stats['total_questions'] or 0
+
+    overall_accuracy = round((total_correct / total_questions * 100), 1) if total_questions > 0 else 0
+
+    # 언어별 통계
+    from accounts.models import Language
+    language_stats = {}
+
+    user_languages = WordQuiz.objects.filter(user=user).values_list(
+        'learning_language', flat=True
+    ).distinct()
+
+    for lang_id in user_languages:
+        lang = Language.objects.filter(pk=lang_id).first()
+        if lang:
+            lang_quizzes = WordQuiz.objects.filter(user=user, learning_language=lang)
+            lang_aggregate = lang_quizzes.aggregate(
+                total_attempts=Sum('total_questions'),
+                correct_count=Sum('correct_count'),
+                quiz_count=Count('id', filter=Q(is_completed=True))
+            )
+            attempts = lang_aggregate['total_attempts'] or 0
+            correct = lang_aggregate['correct_count'] or 0
+            language_stats[lang.code] = {
+                'language_name': lang.name_ko,
+                'total_attempts': attempts,
+                'correct_count': correct,
+                'accuracy': round((correct / attempts * 100), 1) if attempts > 0 else 0,
+                'quiz_count': lang_aggregate['quiz_count'] or 0
+            }
+
+    # 취약 단어 (정답률 낮은 순)
+    weakest = UserWordStats.objects.filter(
+        user=user,
+        total_attempts__gte=3
+    ).annotate(
+        accuracy_rate=F('correct_count') * 100 / F('total_attempts')
+    ).order_by('accuracy_rate')[:5]
+
+    # 강점 단어 (정답률 높은 순)
+    strongest = UserWordStats.objects.filter(
+        user=user,
+        total_attempts__gte=3
+    ).annotate(
+        accuracy_rate=F('correct_count') * 100 / F('total_attempts')
+    ).order_by('-accuracy_rate')[:5]
+
+    return APIResponse.success(
+        message='Word quiz stats retrieved',
+        data={
+            'total_quizzes': total_quizzes,
+            'completed_quizzes': completed_quizzes,
+            'total_questions_answered': total_questions,
+            'total_correct': total_correct,
+            'overall_accuracy': overall_accuracy,
+            'language_stats': language_stats,
+            'weakest_words': UserWordStatsSerializer(weakest, many=True).data,
+            'strongest_words': UserWordStatsSerializer(strongest, many=True).data
         }
     )

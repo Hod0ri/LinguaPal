@@ -3,7 +3,9 @@ from .models import (
     Word, WordTranslation, Example, ExampleTranslation,
     PartOfSpeech, WordCategory,
     GanaQuiz, GanaQuizQuestion, UserGanaStats,
-    GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount
+    GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount,
+    WordQuiz, WordQuizQuestion, UserWordStats,
+    WordQuizType, WordQuizQuestionCount
 )
 from accounts.models import Language
 
@@ -355,3 +357,155 @@ class UserGanaStatsSummarySerializer(serializers.Serializer):
     katakana_stats = serializers.DictField()
     weakest_characters = UserGanaStatsSerializer(many=True)
     strongest_characters = UserGanaStatsSerializer(many=True)
+
+
+# =============================================================================
+# 단어 퀴즈 API Serializers
+# =============================================================================
+
+class WordQuizStartRequestSerializer(serializers.Serializer):
+    """단어 퀴즈 시작 요청 Serializer"""
+    learning_language = serializers.CharField(
+        help_text='배우고자 하는 언어 코드 (예: ja, en, es)'
+    )
+    quiz_type = serializers.ChoiceField(
+        choices=WordQuizType.choices,
+        help_text='퀴즈 유형: word_to_native, native_to_word_select, native_to_word_input'
+    )
+    question_count = serializers.IntegerField(
+        help_text='문제 수: 10, 25, 0(전체)'
+    )
+
+    def validate_learning_language(self, value):
+        try:
+            language = Language.objects.get(code=value)
+            return language.id
+        except Language.DoesNotExist:
+            raise serializers.ValidationError(f'존재하지 않는 언어 코드입니다: {value}')
+
+
+class WordQuizQuestionSerializer(serializers.ModelSerializer):
+    """단어 퀴즈 문제 Serializer"""
+    question = serializers.SerializerMethodField()
+    correct_answer = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WordQuizQuestion
+        fields = ['id', 'question_number', 'question', 'choices', 'user_answer', 'is_correct', 'correct_answer', 'answered_at']
+
+    def get_question(self, obj):
+        """문제 내용 반환 (퀴즈 유형에 따라)"""
+        if obj.quiz.quiz_type == WordQuizType.WORD_TO_NATIVE:
+            return obj.word.text  # 외국어 단어 보여주기
+        else:
+            # 모국어 뜻 보여주기
+            translation = obj.word.translations.filter(language=obj.quiz.native_language).first()
+            return translation.translated_text if translation else obj.word.text
+
+    def get_correct_answer(self, obj):
+        """정답 반환 (퀴즈 완료 후에만)"""
+        if obj.quiz.is_completed or obj.is_correct is not None:
+            return obj.get_correct_answer(obj.quiz.native_language)
+        return None
+
+
+class WordQuizQuestionCurrentSerializer(serializers.ModelSerializer):
+    """현재 문제 Serializer (정답 숨김)"""
+    question = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WordQuizQuestion
+        fields = ['id', 'question_number', 'question', 'choices']
+
+    def get_question(self, obj):
+        if obj.quiz.quiz_type == WordQuizType.WORD_TO_NATIVE:
+            return obj.word.text
+        else:
+            translation = obj.word.translations.filter(language=obj.quiz.native_language).first()
+            return translation.translated_text if translation else obj.word.text
+
+
+class WordQuizSerializer(serializers.ModelSerializer):
+    """단어 퀴즈 세션 Serializer"""
+    learning_language_code = serializers.CharField(source='learning_language.code', read_only=True)
+    learning_language_name = serializers.CharField(source='learning_language.name_ko', read_only=True)
+    native_language_code = serializers.CharField(source='native_language.code', read_only=True)
+    native_language_name = serializers.CharField(source='native_language.name_ko', read_only=True)
+    quiz_type_display = serializers.CharField(source='get_quiz_type_display', read_only=True)
+    score_percentage = serializers.FloatField(read_only=True)
+    questions = WordQuizQuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = WordQuiz
+        fields = [
+            'id', 'learning_language', 'learning_language_code', 'learning_language_name',
+            'native_language', 'native_language_code', 'native_language_name',
+            'quiz_type', 'quiz_type_display',
+            'question_count_setting', 'total_questions',
+            'correct_count', 'current_question',
+            'is_completed', 'score_percentage',
+            'started_at', 'completed_at',
+            'questions'
+        ]
+
+
+class WordQuizListSerializer(serializers.ModelSerializer):
+    """단어 퀴즈 목록 Serializer (간소화)"""
+    learning_language_code = serializers.CharField(source='learning_language.code', read_only=True)
+    learning_language_name = serializers.CharField(source='learning_language.name_ko', read_only=True)
+    quiz_type_display = serializers.CharField(source='get_quiz_type_display', read_only=True)
+    score_percentage = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = WordQuiz
+        fields = [
+            'id', 'learning_language', 'learning_language_code', 'learning_language_name',
+            'quiz_type', 'quiz_type_display',
+            'total_questions', 'correct_count',
+            'is_completed', 'score_percentage',
+            'started_at', 'completed_at'
+        ]
+
+
+class WordQuizAnswerRequestSerializer(serializers.Serializer):
+    """단어 퀴즈 답변 요청 Serializer"""
+    question_id = serializers.IntegerField(help_text='문제 ID')
+    answer = serializers.CharField(help_text='사용자 답변')
+
+
+class WordQuizAnswerResponseSerializer(serializers.Serializer):
+    """단어 퀴즈 답변 응답 Serializer"""
+    is_correct = serializers.BooleanField()
+    correct_answer = serializers.CharField()
+    user_answer = serializers.CharField()
+    next_question = WordQuizQuestionCurrentSerializer(allow_null=True)
+    quiz_completed = serializers.BooleanField()
+    current_score = serializers.IntegerField()
+    total_answered = serializers.IntegerField()
+
+
+class UserWordStatsSerializer(serializers.ModelSerializer):
+    """사용자 단어 통계 Serializer"""
+    word_text = serializers.CharField(source='word.text', read_only=True)
+    word_language = serializers.CharField(source='word.language.name_ko', read_only=True)
+    accuracy = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = UserWordStats
+        fields = [
+            'id', 'word_text', 'word_language',
+            'total_attempts', 'correct_count', 'incorrect_count',
+            'accuracy', 'last_attempted_at', 'last_correct_at'
+        ]
+
+
+class WordQuizStatsSummarySerializer(serializers.Serializer):
+    """사용자 단어 퀴즈 통계 요약 Serializer"""
+    total_quizzes = serializers.IntegerField()
+    completed_quizzes = serializers.IntegerField()
+    total_questions_answered = serializers.IntegerField()
+    total_correct = serializers.IntegerField()
+    overall_accuracy = serializers.FloatField()
+    language_stats = serializers.DictField()
+    weakest_words = UserWordStatsSerializer(many=True)
+    strongest_words = UserWordStatsSerializer(many=True)

@@ -3,21 +3,62 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Header from '../components/Header'
 import QuizSettingsModal from '../components/QuizSettingsModal'
-import { quizApi } from '../services/api'
-import type { QuizStats } from '../types'
+import WordQuizSettingsModal from '../components/WordQuizSettingsModal'
+import { quizApi, wordQuizApi } from '../services/api'
+import type { QuizStats, WordQuizStats } from '../types'
+
+interface CombinedStats {
+  total_quizzes: number
+  completed_quizzes: number
+  total_questions_answered: number
+  total_correct: number
+  overall_accuracy: number
+}
 
 export default function MainPage() {
   const { profile } = useAuth()
-  const [showQuizModal, setShowQuizModal] = useState(false)
-  const [stats, setStats] = useState<QuizStats | null>(null)
+  const [showGanaQuizModal, setShowGanaQuizModal] = useState(false)
+  const [showWordQuizModal, setShowWordQuizModal] = useState(false)
+  const [ganaStats, setGanaStats] = useState<QuizStats | null>(null)
+  const [wordStats, setWordStats] = useState<WordQuizStats | null>(null)
+  const [combinedStats, setCombinedStats] = useState<CombinedStats | null>(null)
 
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const response = await quizApi.getQuizStats()
-        if (response.data.success) {
-          setStats(response.data.data)
+        const [ganaResponse, wordResponse] = await Promise.all([
+          quizApi.getQuizStats(),
+          wordQuizApi.getQuizStats(),
+        ])
+
+        let gana: QuizStats | null = null
+        let word: WordQuizStats | null = null
+
+        if (ganaResponse.data.success) {
+          gana = ganaResponse.data.data
+          setGanaStats(gana)
         }
+        if (wordResponse.data.success) {
+          word = wordResponse.data.data
+          setWordStats(word)
+        }
+
+        // Combine stats
+        const totalQuizzes = (gana?.total_quizzes || 0) + (word?.total_quizzes || 0)
+        const completedQuizzes = (gana?.completed_quizzes || 0) + (word?.completed_quizzes || 0)
+        const totalQuestionsAnswered = (gana?.total_questions_answered || 0) + (word?.total_questions_answered || 0)
+        const totalCorrect = (gana?.total_correct || 0) + (word?.total_correct || 0)
+        const overallAccuracy = totalQuestionsAnswered > 0
+          ? (totalCorrect / totalQuestionsAnswered) * 100
+          : 0
+
+        setCombinedStats({
+          total_quizzes: totalQuizzes,
+          completed_quizzes: completedQuizzes,
+          total_questions_answered: totalQuestionsAnswered,
+          total_correct: totalCorrect,
+          overall_accuracy: overallAccuracy,
+        })
       } catch {
         // Handle error silently
       }
@@ -67,38 +108,50 @@ export default function MainPage() {
             </div>
           </div>
 
-          {/* Vocabulary Card */}
+          {/* Gana Quiz Card */}
           <div className="card p-6 group hover:border-indigo-200 transition-colors">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
+              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                <span className="text-lg font-bold text-indigo-600">あ</span>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">단어 학습</h2>
+              <h2 className="text-lg font-semibold text-slate-800">가나 퀴즈</h2>
             </div>
-            <p className="text-slate-500 text-sm mb-5">
-              새로운 단어를 배우고 복습하세요.
+            <p className="text-slate-500 text-sm mb-3">
+              히라가나와 가타카나를 연습하세요.
             </p>
-            <button className="w-full btn-primary">
-              학습 시작하기
+            <div className="text-xs text-slate-400 mb-4">
+              {ganaStats ? (
+                <span>완료: {ganaStats.completed_quizzes}회 | 정답률: {ganaStats.overall_accuracy?.toFixed(0) || 0}%</span>
+              ) : (
+                <span>아직 기록이 없습니다</span>
+              )}
+            </div>
+            <button onClick={() => setShowGanaQuizModal(true)} className="w-full btn-primary">
+              퀴즈 풀기
             </button>
           </div>
 
-          {/* Quiz Card */}
-          <div className="card p-6 group hover:border-purple-200 transition-colors">
+          {/* Word Quiz Card */}
+          <div className="card p-6 group hover:border-emerald-200 transition-colors">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">퀴즈</h2>
+              <h2 className="text-lg font-semibold text-slate-800">단어 퀴즈</h2>
             </div>
-            <p className="text-slate-500 text-sm mb-5">
-              배운 단어를 테스트해보세요.
+            <p className="text-slate-500 text-sm mb-3">
+              외국어 단어를 연습하세요.
             </p>
-            <button onClick={() => setShowQuizModal(true)} className="w-full btn-secondary">
+            <div className="text-xs text-slate-400 mb-4">
+              {wordStats ? (
+                <span>완료: {wordStats.completed_quizzes}회 | 정답률: {wordStats.overall_accuracy?.toFixed(0) || 0}%</span>
+              ) : (
+                <span>아직 기록이 없습니다</span>
+              )}
+            </div>
+            <button onClick={() => setShowWordQuizModal(true)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl transition-all">
               퀴즈 풀기
             </button>
           </div>
@@ -108,41 +161,48 @@ export default function MainPage() {
         <div className="card p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">학습 통계</h2>
+              <h2 className="text-lg font-semibold text-slate-800">전체 학습 통계</h2>
             </div>
-            <Link to="/quiz/dashboard" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-              자세히 보기
-            </Link>
+            <div className="flex gap-3">
+              <Link to="/quiz/dashboard" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+                가나 퀴즈
+              </Link>
+              <span className="text-slate-300">|</span>
+              <Link to="/word-quiz/dashboard" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+                단어 퀴즈
+              </Link>
+            </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-5 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100/50">
               <p className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                {stats?.total_questions_answered || 0}
+                {combinedStats?.total_questions_answered || 0}
               </p>
               <p className="text-sm text-slate-500 mt-1">푼 문제</p>
             </div>
             <div className="text-center p-5 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100/50">
-              <p className="text-4xl font-bold text-emerald-600">{stats?.completed_quizzes || 0}</p>
+              <p className="text-4xl font-bold text-emerald-600">{combinedStats?.completed_quizzes || 0}</p>
               <p className="text-sm text-slate-500 mt-1">완료한 퀴즈</p>
             </div>
             <div className="text-center p-5 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-100/50">
-              <p className="text-4xl font-bold text-amber-600">{stats?.total_correct || 0}</p>
+              <p className="text-4xl font-bold text-amber-600">{combinedStats?.total_correct || 0}</p>
               <p className="text-sm text-slate-500 mt-1">맞은 문제</p>
             </div>
             <div className="text-center p-5 bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl border border-rose-100/50">
-              <p className="text-4xl font-bold text-rose-600">{stats?.overall_accuracy?.toFixed(0) || 0}%</p>
+              <p className="text-4xl font-bold text-rose-600">{combinedStats?.overall_accuracy?.toFixed(0) || 0}%</p>
               <p className="text-sm text-slate-500 mt-1">정답률</p>
             </div>
           </div>
         </div>
       </main>
 
-      <QuizSettingsModal isOpen={showQuizModal} onClose={() => setShowQuizModal(false)} />
+      <QuizSettingsModal isOpen={showGanaQuizModal} onClose={() => setShowGanaQuizModal(false)} />
+      <WordQuizSettingsModal isOpen={showWordQuizModal} onClose={() => setShowWordQuizModal(false)} />
     </div>
   )
 }
