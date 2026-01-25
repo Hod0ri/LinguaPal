@@ -20,13 +20,20 @@ from .views import (
     admin_example_translation_create,
     admin_example_translation_update,
     admin_example_translation_delete,
-    # Quiz
+    # Gana Quiz
     quiz_start,
     quiz_answer,
     quiz_detail,
     quiz_current_question,
     quiz_history,
     quiz_stats,
+    # Word Quiz
+    word_quiz_start,
+    word_quiz_answer,
+    word_quiz_detail,
+    word_quiz_current_question,
+    word_quiz_history,
+    word_quiz_stats,
 )
 
 app_name = 'words'
@@ -74,4 +81,12 @@ urlpatterns = [
     path('quiz/gana/<int:quiz_id>', quiz_detail, name='quiz_detail'),
     path('quiz/gana/<int:quiz_id>/answer', quiz_answer, name='quiz_answer'),
     path('quiz/gana/<int:quiz_id>/current', quiz_current_question, name='quiz_current_question'),
+
+    # Word Quiz API
+    path('quiz/word/start', word_quiz_start, name='word_quiz_start'),
+    path('quiz/word/history', word_quiz_history, name='word_quiz_history'),
+    path('quiz/word/stats', word_quiz_stats, name='word_quiz_stats'),
+    path('quiz/word/<int:quiz_id>', word_quiz_detail, name='word_quiz_detail'),
+    path('quiz/word/<int:quiz_id>/answer', word_quiz_answer, name='word_quiz_answer'),
+    path('quiz/word/<int:quiz_id>/current', word_quiz_current_question, name='word_quiz_current_question'),
 ]

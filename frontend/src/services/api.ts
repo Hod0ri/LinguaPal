@@ -15,6 +15,13 @@ import type {
   CurrentQuestion,
   QuizProgress,
   QuizStats,
+  WordQuizStartRequest,
+  WordQuizStartResponse,
+  WordQuizAnswerRequest,
+  WordQuizAnswerResponse,
+  WordQuiz,
+  WordQuizListItem,
+  WordQuizStats,
 } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
@@ -103,7 +110,7 @@ export const masterApi = {
   getCountries: () => api.get<ApiResponse<{ countries: Country[]; total_count: number }>>('/master/countries'),
 }
 
-// Quiz API
+// Gana Quiz API
 export const quizApi = {
   startQuiz: (data: QuizStartRequest) =>
     api.post<ApiResponse<QuizStartResponse>>('/quiz/gana/start', data),
@@ -127,6 +134,36 @@ export const quizApi = {
 
   getQuizStats: () =>
     api.get<ApiResponse<QuizStats>>('/quiz/gana/stats'),
+}
+
+// Word Quiz API
+export const wordQuizApi = {
+  startQuiz: (data: WordQuizStartRequest) =>
+    api.post<ApiResponse<WordQuizStartResponse>>('/quiz/word/start', {
+      learning_language: data.learning_language,
+      quiz_type: data.quiz_type,
+      question_count: parseInt(data.question_count),
+    }),
+
+  submitAnswer: (quizId: number, data: WordQuizAnswerRequest) =>
+    api.post<ApiResponse<WordQuizAnswerResponse>>(`/quiz/word/${quizId}/answer`, data),
+
+  getQuizDetail: (quizId: number) =>
+    api.get<ApiResponse<WordQuiz>>(`/quiz/word/${quizId}`),
+
+  getCurrentQuestion: (quizId: number) =>
+    api.get<ApiResponse<{ question: CurrentQuestion; progress: QuizProgress }>>(`/quiz/word/${quizId}/current`),
+
+  getQuizHistory: (params?: {
+    learning_language?: string
+    quiz_type?: string
+    is_completed?: boolean
+    limit?: number
+  }) =>
+    api.get<ApiResponse<{ quizzes: WordQuizListItem[]; total_count: number }>>('/quiz/word/history', { params }),
+
+  getQuizStats: (params?: { learning_language?: string }) =>
+    api.get<ApiResponse<WordQuizStats>>('/quiz/word/stats', { params }),
 }
 
 export default api

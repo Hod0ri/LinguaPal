@@ -423,3 +423,220 @@ class UserGanaStats(models.Model):
         if self.total_attempts == 0:
             return 0
         return round((self.correct_count / self.total_attempts) * 100, 1)
+
+
+# =============================================================================
+# 단어 퀴즈 관련 모델
+# =============================================================================
+
+class WordQuizType(models.TextChoices):
+    """단어 퀴즈 유형"""
+    WORD_TO_NATIVE = 'word_to_native', '단어 → 모국어'
+    NATIVE_TO_WORD_SELECT = 'native_to_word_select', '모국어 → 단어 (선택)'
+    NATIVE_TO_WORD_INPUT = 'native_to_word_input', '모국어 → 단어 (입력)'
+
+
+class WordQuizQuestionCount(models.IntegerChoices):
+    """단어 퀴즈 문제 수"""
+    TEN = 10, '10문제'
+    TWENTY_FIVE = 25, '25문제'
+    ALL = 0, '전체'
+
+
+class WordQuiz(models.Model):
+    """단어 퀴즈 세션"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='word_quizzes',
+        verbose_name='사용자'
+    )
+    learning_language = models.ForeignKey(
+        Language,
+        on_delete=models.CASCADE,
+        related_name='word_quizzes_as_learning',
+        verbose_name='학습 언어'
+    )
+    native_language = models.ForeignKey(
+        Language,
+        on_delete=models.CASCADE,
+        related_name='word_quizzes_as_native',
+        verbose_name='모국어'
+    )
+    quiz_type = models.CharField(
+        max_length=30,
+        choices=WordQuizType.choices,
+        verbose_name='퀴즈 유형'
+    )
+    question_count_setting = models.IntegerField(
+        choices=WordQuizQuestionCount.choices,
+        verbose_name='문제 수 설정'
+    )
+    total_questions = models.PositiveIntegerField(
+        verbose_name='총 문제 수',
+        help_text='실제 출제된 문제 수'
+    )
+    correct_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='정답 수'
+    )
+    current_question = models.PositiveIntegerField(
+        default=1,
+        verbose_name='현재 문제 번호'
+    )
+    is_completed = models.BooleanField(
+        default=False,
+        verbose_name='완료 여부'
+    )
+    started_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='시작 시간'
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='완료 시간'
+    )
+
+    class Meta:
+        verbose_name = '단어 퀴즈'
+        verbose_name_plural = '단어 퀴즈 목록'
+        ordering = ['-started_at']
+        indexes = [
+            models.Index(fields=['user', '-started_at']),
+            models.Index(fields=['is_completed']),
+            models.Index(fields=['user', 'learning_language']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.email} - {self.learning_language.code} {self.get_quiz_type_display()}'
+
+    @property
+    def score_percentage(self):
+        if self.total_questions == 0:
+            return 0
+        return round((self.correct_count / self.total_questions) * 100, 1)
+
+
+class WordQuizQuestion(models.Model):
+    """단어 퀴즈 문제/답변 기록"""
+    quiz = models.ForeignKey(
+        WordQuiz,
+        on_delete=models.CASCADE,
+        related_name='questions',
+        verbose_name='퀴즈'
+    )
+    word = models.ForeignKey(
+        Word,
+        on_delete=models.CASCADE,
+        related_name='word_quiz_questions',
+        verbose_name='단어'
+    )
+    question_number = models.PositiveIntegerField(
+        verbose_name='문제 번호'
+    )
+    choices = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='선택지',
+        help_text='선택형 문제의 경우 선택지 목록'
+    )
+    user_answer = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name='사용자 답변'
+    )
+    is_correct = models.BooleanField(
+        null=True,
+        verbose_name='정답 여부'
+    )
+    answered_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='답변 시간'
+    )
+
+    class Meta:
+        verbose_name = '단어 퀴즈 문제'
+        verbose_name_plural = '단어 퀴즈 문제 목록'
+        ordering = ['question_number']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['quiz', 'question_number'],
+                name='unique_word_question_number_per_quiz'
+            )
+        ]
+
+    def __str__(self):
+        return f'WordQuiz {self.quiz.id} - Q{self.question_number}: {self.word.text}'
+
+    def get_correct_answer(self, native_language):
+        """정답 반환 (퀴즈 유형에 따라)"""
+        if self.quiz.quiz_type == WordQuizType.WORD_TO_NATIVE:
+            # 단어 보고 모국어 뜻 입력 -> 정답은 번역
+            translation = self.word.translations.filter(language=native_language).first()
+            return translation.translated_text if translation else ''
+        else:
+            # 모국어 보고 단어 입력/선택 -> 정답은 단어 텍스트
+            return self.word.text
+
+
+class UserWordStats(models.Model):
+    """사용자별 단어 통계"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='word_stats',
+        verbose_name='사용자'
+    )
+    word = models.ForeignKey(
+        Word,
+        on_delete=models.CASCADE,
+        related_name='user_word_stats',
+        verbose_name='단어'
+    )
+    total_attempts = models.PositiveIntegerField(
+        default=0,
+        verbose_name='총 시도 횟수'
+    )
+    correct_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='정답 횟수'
+    )
+    incorrect_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='오답 횟수'
+    )
+    last_attempted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='마지막 시도 시간'
+    )
+    last_correct_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='마지막 정답 시간'
+    )
+
+    class Meta:
+        verbose_name = '사용자 단어 통계'
+        verbose_name_plural = '사용자 단어 통계 목록'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'word'],
+                name='unique_user_word_word_stats'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['user', 'word']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.email} - {self.word.text}: {self.correct_count}/{self.total_attempts}'
+
+    @property
+    def accuracy(self):
+        """정답률"""
+        if self.total_attempts == 0:
+            return 0
+        return round((self.correct_count / self.total_attempts) * 100, 1)

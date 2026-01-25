@@ -4,12 +4,14 @@ from django.utils import timezone
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from accounts.models import User, Language
+from accounts.models import User, Language, Country, UserProfile
 from .models import (
     Word, WordTranslation, Example, ExampleTranslation,
     PartOfSpeech, WordCategory,
     GanaQuiz, GanaQuizQuestion, UserGanaStats,
-    GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount
+    GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount,
+    WordQuiz, WordQuizQuestion, UserWordStats,
+    WordQuizType, WordQuizQuestionCount
 )
 
 
@@ -1664,3 +1666,860 @@ class GanaQuizEdgeCaseAPITest(GanaQuizAPITestBase):
         self.assertEqual(len(questions), 1)
         # 완료된 퀴즈는 correct_answer가 표시되어야 함
         self.assertIn('correct_answer', questions[0])
+
+
+# =============================================================================
+# 단어 퀴즈 모델 테스트
+# =============================================================================
+
+class WordQuizModelTest(TestCase):
+    """단어 퀴즈 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123'
+        )
+        self.japanese = Language.objects.create(
+            code='ja',
+            name_ko='일본어',
+            name_en='Japanese'
+        )
+        self.korean = Language.objects.create(
+            code='ko',
+            name_ko='한국어',
+            name_en='Korean'
+        )
+
+    def test_word_quiz_creation(self):
+        """단어 퀴즈 생성 테스트"""
+        quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=10
+        )
+
+        self.assertEqual(quiz.learning_language, self.japanese)
+        self.assertEqual(quiz.native_language, self.korean)
+        self.assertEqual(quiz.quiz_type, WordQuizType.WORD_TO_NATIVE)
+        self.assertEqual(quiz.total_questions, 10)
+        self.assertEqual(quiz.correct_count, 0)
+        self.assertFalse(quiz.is_completed)
+
+    def test_score_percentage(self):
+        """점수 백분율 계산 테스트"""
+        quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=10,
+            correct_count=7
+        )
+
+        self.assertEqual(quiz.score_percentage, 70.0)
+
+    def test_score_percentage_zero_questions(self):
+        """문제 수가 0일 때 점수 계산"""
+        quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.ALL,
+            total_questions=0
+        )
+
+        self.assertEqual(quiz.score_percentage, 0)
+
+
+class WordQuizQuestionModelTest(TestCase):
+    """단어 퀴즈 문제 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123'
+        )
+        self.japanese = Language.objects.create(
+            code='ja',
+            name_ko='일본어',
+            name_en='Japanese'
+        )
+        self.korean = Language.objects.create(
+            code='ko',
+            name_ko='한국어',
+            name_en='Korean'
+        )
+        self.word = Word.objects.create(
+            language=self.japanese,
+            text='猫',
+            category=WordCategory.WORD,
+            part_of_speech=PartOfSpeech.NOUN,
+            pronunciation='ねこ'
+        )
+        WordTranslation.objects.create(
+            word=self.word,
+            language=self.korean,
+            translated_text='고양이'
+        )
+        self.quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=10
+        )
+
+    def test_question_creation(self):
+        """퀴즈 문제 생성 테스트"""
+        question = WordQuizQuestion.objects.create(
+            quiz=self.quiz,
+            word=self.word,
+            question_number=1
+        )
+
+        self.assertEqual(question.question_number, 1)
+        self.assertEqual(question.word, self.word)
+        self.assertIsNone(question.is_correct)
+
+    def test_correct_answer_word_to_native(self):
+        """단어→모국어 퀴즈의 정답 반환"""
+        question = WordQuizQuestion.objects.create(
+            quiz=self.quiz,
+            word=self.word,
+            question_number=1
+        )
+
+        correct_answer = question.get_correct_answer(self.korean)
+        self.assertEqual(correct_answer, '고양이')
+
+    def test_correct_answer_native_to_word(self):
+        """모국어→단어 퀴즈의 정답 반환"""
+        quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.NATIVE_TO_WORD_INPUT,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=10
+        )
+        question = WordQuizQuestion.objects.create(
+            quiz=quiz,
+            word=self.word,
+            question_number=1
+        )
+
+        correct_answer = question.get_correct_answer(self.korean)
+        self.assertEqual(correct_answer, '猫')
+
+
+class UserWordStatsModelTest(TestCase):
+    """사용자 단어 통계 모델 테스트"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123'
+        )
+        self.japanese = Language.objects.create(
+            code='ja',
+            name_ko='일본어',
+            name_en='Japanese'
+        )
+        self.word = Word.objects.create(
+            language=self.japanese,
+            text='猫',
+            category=WordCategory.WORD,
+            part_of_speech=PartOfSpeech.NOUN
+        )
+
+    def test_stats_creation(self):
+        """통계 생성 테스트"""
+        stats = UserWordStats.objects.create(
+            user=self.user,
+            word=self.word,
+            total_attempts=10,
+            correct_count=8,
+            incorrect_count=2
+        )
+
+        self.assertEqual(stats.total_attempts, 10)
+        self.assertEqual(stats.correct_count, 8)
+        self.assertEqual(stats.accuracy, 80.0)
+
+    def test_accuracy_zero_attempts(self):
+        """시도 횟수가 0일 때 정답률"""
+        stats = UserWordStats.objects.create(
+            user=self.user,
+            word=self.word
+        )
+
+        self.assertEqual(stats.accuracy, 0)
+
+
+# =============================================================================
+# 단어 퀴즈 API 테스트
+# =============================================================================
+
+class WordQuizAPITestBase(APITestCase):
+    """단어 퀴즈 API 테스트 베이스 클래스"""
+
+    def setUp(self):
+        self.client = APIClient()
+
+        # 언어 생성
+        self.japanese = Language.objects.create(
+            code='ja',
+            name_ko='일본어',
+            name_en='Japanese'
+        )
+        self.korean = Language.objects.create(
+            code='ko',
+            name_ko='한국어',
+            name_en='Korean'
+        )
+
+        # 국가 생성
+        self.country_kr = Country.objects.create(
+            code='KR',
+            name_ko='대한민국',
+            name_en='South Korea'
+        )
+
+        # 사용자 및 프로필 생성
+        self.user = User.objects.create_user(
+            username='testuser',
+            email='test@example.com',
+            password='testpass123'
+        )
+        self.user_profile = UserProfile.objects.create(
+            user=self.user,
+            nickname='테스터',
+            country=self.country_kr
+        )
+        self.user_profile.learning_languages.add(self.japanese)
+
+        # 일본어 단어 생성 (테스트용 10개)
+        word_data = [
+            ('猫', 'ねこ', '고양이'), ('犬', 'いぬ', '개'), ('水', 'みず', '물'),
+            ('火', 'ひ', '불'), ('山', 'やま', '산'), ('川', 'かわ', '강'),
+            ('空', 'そら', '하늘'), ('海', 'うみ', '바다'), ('花', 'はな', '꽃'),
+            ('木', 'き', '나무')
+        ]
+        self.words = []
+        for text, pronunciation, korean_meaning in word_data:
+            word = Word.objects.create(
+                language=self.japanese,
+                text=text,
+                category=WordCategory.WORD,
+                part_of_speech=PartOfSpeech.NOUN,
+                pronunciation=pronunciation,
+                difficulty_level=1
+            )
+            WordTranslation.objects.create(
+                word=word,
+                language=self.korean,
+                translated_text=korean_meaning
+            )
+            self.words.append(word)
+
+    def _get_token(self, user):
+        refresh = RefreshToken.for_user(user)
+        return str(refresh.access_token)
+
+    def _authenticate_as(self, user):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self._get_token(user)}')
+
+
+class WordQuizStartAPITest(WordQuizAPITestBase):
+    """단어 퀴즈 시작 API 테스트"""
+
+    def test_start_word_to_native_quiz(self):
+        """단어→모국어 퀴즈 시작"""
+        self._authenticate_as(self.user)
+        url = reverse('words:word_quiz_start')
+        data = {
+            'learning_language': 'ja',
+            'quiz_type': 'word_to_native',
+            'question_count': 10
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['success'])
+        self.assertIn('quiz', response.data['data'])
+        self.assertIn('current_question', response.data['data'])
+        self.assertEqual(response.data['data']['quiz']['total_questions'], 10)
+
+    def test_start_native_to_word_select_quiz(self):
+        """모국어→단어(선택) 퀴즈 시작"""
+        self._authenticate_as(self.user)
+        url = reverse('words:word_quiz_start')
+        data = {
+            'learning_language': 'ja',
+            'quiz_type': 'native_to_word_select',
+            'question_count': 10
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        current_question = response.data['data']['current_question']
+        self.assertIn('choices', current_question)
+        self.assertEqual(len(current_question['choices']), 3)
+
+    def test_start_native_to_word_input_quiz(self):
+        """모국어→단어(입력) 퀴즈 시작"""
+        self._authenticate_as(self.user)
+        url = reverse('words:word_quiz_start')
+        data = {
+            'learning_language': 'ja',
+            'quiz_type': 'native_to_word_input',
+            'question_count': 10
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        current_question = response.data['data']['current_question']
+        # 입력형은 선택지가 없거나 빈 리스트
+        self.assertTrue(
+            current_question['choices'] is None or
+            len(current_question['choices']) == 0
+        )
+
+    def test_start_quiz_unauthenticated(self):
+        """인증되지 않은 사용자 퀴즈 시작 불가"""
+        url = reverse('words:word_quiz_start')
+        data = {
+            'learning_language': 'ja',
+            'quiz_type': 'word_to_native',
+            'question_count': 10
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_start_quiz_invalid_language(self):
+        """잘못된 언어로 퀴즈 시작"""
+        self._authenticate_as(self.user)
+        url = reverse('words:word_quiz_start')
+        data = {
+            'learning_language': 'invalid',
+            'quiz_type': 'word_to_native',
+            'question_count': 10
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_start_quiz_with_all_questions(self):
+        """전체 문제 수로 퀴즈 시작"""
+        self._authenticate_as(self.user)
+        url = reverse('words:word_quiz_start')
+        data = {
+            'learning_language': 'ja',
+            'quiz_type': 'word_to_native',
+            'question_count': 0  # 전체
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['data']['quiz']['total_questions'], 10)
+
+
+class WordQuizAnswerAPITest(WordQuizAPITestBase):
+    """단어 퀴즈 답변 API 테스트"""
+
+    def setUp(self):
+        super().setUp()
+        self._authenticate_as(self.user)
+
+        # 퀴즈 생성
+        self.quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=3
+        )
+
+        # 문제 생성
+        for i, word in enumerate(self.words[:3], 1):
+            WordQuizQuestion.objects.create(
+                quiz=self.quiz,
+                word=word,
+                question_number=i
+            )
+
+    def test_submit_correct_answer(self):
+        """정답 제출"""
+        question = self.quiz.questions.first()
+        url = reverse('words:word_quiz_answer', kwargs={'quiz_id': self.quiz.id})
+        data = {
+            'question_id': question.id,
+            'answer': '고양이'  # 猫의 번역
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['data']['is_correct'])
+        self.assertEqual(response.data['data']['current_score'], 1)
+
+    def test_submit_wrong_answer(self):
+        """오답 제출"""
+        question = self.quiz.questions.first()
+        url = reverse('words:word_quiz_answer', kwargs={'quiz_id': self.quiz.id})
+        data = {
+            'question_id': question.id,
+            'answer': '틀린답'
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['data']['is_correct'])
+        self.assertEqual(response.data['data']['current_score'], 0)
+
+    def test_answer_updates_user_stats(self):
+        """답변 시 사용자 통계 업데이트"""
+        question = self.quiz.questions.first()
+        url = reverse('words:word_quiz_answer', kwargs={'quiz_id': self.quiz.id})
+        data = {
+            'question_id': question.id,
+            'answer': '고양이'
+        }
+        self.client.post(url, data, format='json')
+
+        # 통계 확인
+        stats = UserWordStats.objects.get(user=self.user, word=question.word)
+        self.assertEqual(stats.total_attempts, 1)
+        self.assertEqual(stats.correct_count, 1)
+
+    def test_complete_quiz(self):
+        """퀴즈 완료"""
+        # 모든 문제 답변
+        translations = ['고양이', '개', '물']
+        for question, translation in zip(self.quiz.questions.all(), translations):
+            url = reverse('words:word_quiz_answer', kwargs={'quiz_id': self.quiz.id})
+            data = {
+                'question_id': question.id,
+                'answer': translation
+            }
+            response = self.client.post(url, data, format='json')
+
+        # 마지막 응답에서 퀴즈 완료 확인
+        self.assertTrue(response.data['data']['quiz_completed'])
+
+        # 퀴즈 상태 확인
+        self.quiz.refresh_from_db()
+        self.assertTrue(self.quiz.is_completed)
+        self.assertIsNotNone(self.quiz.completed_at)
+
+    def test_cannot_answer_completed_quiz(self):
+        """완료된 퀴즈에 답변 불가"""
+        self.quiz.is_completed = True
+        self.quiz.save()
+
+        question = self.quiz.questions.first()
+        url = reverse('words:word_quiz_answer', kwargs={'quiz_id': self.quiz.id})
+        data = {
+            'question_id': question.id,
+            'answer': '고양이'
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cannot_answer_same_question_twice(self):
+        """같은 문제에 두 번 답변 불가"""
+        question = self.quiz.questions.first()
+        url = reverse('words:word_quiz_answer', kwargs={'quiz_id': self.quiz.id})
+        data = {
+            'question_id': question.id,
+            'answer': '고양이'
+        }
+
+        # 첫 번째 답변
+        self.client.post(url, data, format='json')
+
+        # 두 번째 답변 시도
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class WordQuizDetailAPITest(WordQuizAPITestBase):
+    """단어 퀴즈 상세 조회 API 테스트"""
+
+    def setUp(self):
+        super().setUp()
+        self._authenticate_as(self.user)
+
+        self.quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=3
+        )
+
+    def test_get_quiz_detail(self):
+        """퀴즈 상세 조회"""
+        url = reverse('words:word_quiz_detail', kwargs={'quiz_id': self.quiz.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data']['id'], self.quiz.id)
+
+    def test_cannot_get_other_user_quiz(self):
+        """다른 사용자 퀴즈 조회 불가"""
+        other_user = User.objects.create_user(
+            username='other',
+            email='other@example.com',
+            password='testpass123'
+        )
+        other_quiz = WordQuiz.objects.create(
+            user=other_user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=3
+        )
+
+        url = reverse('words:word_quiz_detail', kwargs={'quiz_id': other_quiz.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class WordQuizCurrentQuestionAPITest(WordQuizAPITestBase):
+    """현재 문제 조회 API 테스트"""
+
+    def setUp(self):
+        super().setUp()
+        self._authenticate_as(self.user)
+
+        # 퀴즈 생성
+        self.quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=3
+        )
+
+        # 문제 생성
+        for i, word in enumerate(self.words[:3], 1):
+            WordQuizQuestion.objects.create(
+                quiz=self.quiz,
+                word=word,
+                question_number=i
+            )
+
+    def test_get_current_question(self):
+        """현재 문제 조회"""
+        url = reverse('words:word_quiz_current_question', kwargs={'quiz_id': self.quiz.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['success'])
+        self.assertIn('question', response.data['data'])
+        self.assertIn('progress', response.data['data'])
+        self.assertEqual(response.data['data']['question']['question_number'], 1)
+
+    def test_get_current_question_progress(self):
+        """현재 문제 조회 시 진행 상황 확인"""
+        # 첫 번째 문제 답변
+        first_question = self.quiz.questions.first()
+        first_question.user_answer = '고양이'
+        first_question.is_correct = True
+        first_question.answered_at = timezone.now()
+        first_question.save()
+        self.quiz.correct_count = 1
+        self.quiz.save()
+
+        url = reverse('words:word_quiz_current_question', kwargs={'quiz_id': self.quiz.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['data']['progress']['current'], 2)
+        self.assertEqual(response.data['data']['progress']['total'], 3)
+        self.assertEqual(response.data['data']['progress']['correct_so_far'], 1)
+
+    def test_get_current_question_completed_quiz(self):
+        """완료된 퀴즈의 현재 문제 조회 시 에러"""
+        self.quiz.is_completed = True
+        self.quiz.save()
+
+        url = reverse('words:word_quiz_current_question', kwargs={'quiz_id': self.quiz.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class WordQuizHistoryAPITest(WordQuizAPITestBase):
+    """단어 퀴즈 기록 조회 API 테스트"""
+
+    def setUp(self):
+        super().setUp()
+        self._authenticate_as(self.user)
+
+        # 여러 퀴즈 생성
+        for i in range(5):
+            WordQuiz.objects.create(
+                user=self.user,
+                learning_language=self.japanese,
+                native_language=self.korean,
+                quiz_type=WordQuizType.WORD_TO_NATIVE if i % 2 == 0 else WordQuizType.NATIVE_TO_WORD_SELECT,
+                question_count_setting=WordQuizQuestionCount.TEN,
+                total_questions=10,
+                is_completed=i < 3
+            )
+
+    def test_get_quiz_history(self):
+        """퀴즈 기록 조회"""
+        url = reverse('words:word_quiz_history')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['data']['quizzes']), 5)
+
+    def test_filter_by_quiz_type(self):
+        """퀴즈 유형으로 필터링"""
+        url = reverse('words:word_quiz_history')
+        response = self.client.get(url, {'quiz_type': 'word_to_native'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['data']['quizzes']), 3)
+
+    def test_filter_by_completion(self):
+        """완료 여부로 필터링"""
+        url = reverse('words:word_quiz_history')
+        response = self.client.get(url, {'is_completed': 'true'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['data']['quizzes']), 3)
+
+    def test_limit_results(self):
+        """결과 수 제한"""
+        url = reverse('words:word_quiz_history')
+        response = self.client.get(url, {'limit': 2})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['data']['quizzes']), 2)
+
+
+class WordQuizStatsAPITest(WordQuizAPITestBase):
+    """단어 학습 통계 조회 API 테스트"""
+
+    def setUp(self):
+        super().setUp()
+        self._authenticate_as(self.user)
+
+        # 완료된 퀴즈 생성
+        quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=10,
+            correct_count=8,
+            is_completed=True
+        )
+
+        # 사용자 통계 생성
+        for i, word in enumerate(self.words[:5]):
+            UserWordStats.objects.create(
+                user=self.user,
+                word=word,
+                total_attempts=10,
+                correct_count=10 - i,  # 다양한 정답률
+                incorrect_count=i
+            )
+
+    def test_get_stats(self):
+        """통계 조회"""
+        url = reverse('words:word_quiz_stats')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('total_quizzes', response.data['data'])
+        self.assertIn('overall_accuracy', response.data['data'])
+        self.assertIn('language_stats', response.data['data'])
+
+    def test_stats_accuracy(self):
+        """통계 정확도 확인"""
+        url = reverse('words:word_quiz_stats')
+        response = self.client.get(url)
+
+        self.assertEqual(response.data['data']['total_quizzes'], 1)
+        self.assertEqual(response.data['data']['total_correct'], 8)
+        self.assertEqual(response.data['data']['overall_accuracy'], 80.0)
+
+    def test_weakest_and_strongest_words(self):
+        """약점/강점 단어 조회"""
+        url = reverse('words:word_quiz_stats')
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('weakest_words', response.data['data'])
+        self.assertIn('strongest_words', response.data['data'])
+
+
+class WordQuizEdgeCaseAPITest(WordQuizAPITestBase):
+    """단어 퀴즈 API 엣지 케이스 테스트"""
+
+    def setUp(self):
+        super().setUp()
+        self._authenticate_as(self.user)
+
+    def test_start_quiz_with_few_words(self):
+        """단어 수보다 많은 문제 수 요청 시"""
+        url = reverse('words:word_quiz_start')
+        data = {
+            'learning_language': 'ja',
+            'quiz_type': 'word_to_native',
+            'question_count': 25  # 10개밖에 없는데 25개 요청
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        # 실제 단어 수만큼만 출제
+        self.assertEqual(response.data['data']['quiz']['total_questions'], 10)
+
+    def test_answer_with_whitespace(self):
+        """공백이 포함된 답변 처리"""
+        quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=1
+        )
+        question = WordQuizQuestion.objects.create(
+            quiz=quiz,
+            word=self.words[0],  # 猫 (고양이)
+            question_number=1
+        )
+
+        url = reverse('words:word_quiz_answer', kwargs={'quiz_id': quiz.id})
+        data = {
+            'question_id': question.id,
+            'answer': '  고양이  '  # 앞뒤 공백
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['data']['is_correct'])
+
+    def test_answer_case_insensitive(self):
+        """대소문자 무시 정답 확인 (영어 단어의 경우)"""
+        # 영어 설정
+        english = Language.objects.create(
+            code='en',
+            name_ko='영어',
+            name_en='English'
+        )
+        english_word = Word.objects.create(
+            language=english,
+            text='Cat',
+            category=WordCategory.WORD,
+            part_of_speech=PartOfSpeech.NOUN
+        )
+        WordTranslation.objects.create(
+            word=english_word,
+            language=self.korean,
+            translated_text='고양이'
+        )
+
+        quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=english,
+            native_language=self.korean,
+            quiz_type=WordQuizType.NATIVE_TO_WORD_INPUT,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=1
+        )
+        question = WordQuizQuestion.objects.create(
+            quiz=quiz,
+            word=english_word,
+            question_number=1
+        )
+
+        url = reverse('words:word_quiz_answer', kwargs={'quiz_id': quiz.id})
+        data = {
+            'question_id': question.id,
+            'answer': 'cat'  # 소문자로 입력
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['data']['is_correct'])
+
+    def test_answer_nonexistent_quiz(self):
+        """존재하지 않는 퀴즈에 답변 시도"""
+        url = reverse('words:word_quiz_answer', kwargs={'quiz_id': 9999})
+        data = {
+            'question_id': 1,
+            'answer': '고양이'
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_quiz_detail_includes_questions(self):
+        """퀴즈 상세 조회 시 문제 목록 포함"""
+        quiz = WordQuiz.objects.create(
+            user=self.user,
+            learning_language=self.japanese,
+            native_language=self.korean,
+            quiz_type=WordQuizType.WORD_TO_NATIVE,
+            question_count_setting=WordQuizQuestionCount.TEN,
+            total_questions=3
+        )
+        for i, word in enumerate(self.words[:3], 1):
+            WordQuizQuestion.objects.create(
+                quiz=quiz,
+                word=word,
+                question_number=i
+            )
+
+        url = reverse('words:word_quiz_detail', kwargs={'quiz_id': quiz.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('questions', response.data['data'])
+        self.assertEqual(len(response.data['data']['questions']), 3)
+
+    def test_no_profile_error(self):
+        """프로필이 없는 사용자 퀴즈 시작 시 에러"""
+        # 프로필 없는 사용자 생성
+        user_no_profile = User.objects.create_user(
+            username='noprofile',
+            email='noprofile@example.com',
+            password='testpass123'
+        )
+        self._authenticate_as(user_no_profile)
+
+        url = reverse('words:word_quiz_start')
+        data = {
+            'learning_language': 'ja',
+            'quiz_type': 'word_to_native',
+            'question_count': 10
+        }
+        response = self.client.post(url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

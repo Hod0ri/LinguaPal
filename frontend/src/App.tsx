@@ -8,6 +8,9 @@ import ProfilePage from './pages/ProfilePage'
 import QuizPage from './pages/QuizPage'
 import QuizResultPage from './pages/QuizResultPage'
 import QuizDashboardPage from './pages/QuizDashboardPage'
+import WordQuizPage from './pages/WordQuizPage'
+import WordQuizResultPage from './pages/WordQuizResultPage'
+import WordQuizDashboardPage from './pages/WordQuizDashboardPage'
 
 function App() {
   const { isLoading } = useAuth()
@@ -68,6 +71,30 @@ function App() {
         element={
           <ProtectedRoute>
             <QuizPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/word-quiz/dashboard"
+        element={
+          <ProtectedRoute>
+            <WordQuizDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/word-quiz/result/:quizId"
+        element={
+          <ProtectedRoute>
+            <WordQuizResultPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/word-quiz/:quizId"
+        element={
+          <ProtectedRoute>
+            <WordQuizPage />
           </ProtectedRoute>
         }
       />
