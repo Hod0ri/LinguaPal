@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { wordQuizApi, userApi } from '../services/api'
+import { userApi } from '../services/api'
+import { lrsWordQuizApi } from '../services/lrsMiddleware'
 import type { WordQuizType, WordQuizQuestionCount, Language } from '../types'
 
 interface WordQuizSettingsModalProps {
@@ -64,7 +65,7 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
     setError(null)
 
     try {
-      const response = await wordQuizApi.startQuiz({
+      const response = await lrsWordQuizApi.startQuiz({
         learning_language: selectedLanguage,
         quiz_type: quizType,
         question_count: questionCount,

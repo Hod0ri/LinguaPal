@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { wordQuizApi } from '../services/api'
+import { lrsWordQuizApi } from '../services/lrsMiddleware'
 import Header from '../components/Header'
 import type { WordQuiz, CurrentQuestion, QuizProgress, WordQuizAnswerResponse } from '../types'
 
@@ -26,7 +26,7 @@ export default function WordQuizPage() {
 
     try {
       setIsLoading(true)
-      const quizResponse = await wordQuizApi.getQuizDetail(parseInt(quizId))
+      const quizResponse = await lrsWordQuizApi.getQuizDetail(parseInt(quizId))
 
       if (!quizResponse.data.success) {
         setError('퀴즈를 찾을 수 없습니다.')
@@ -42,7 +42,7 @@ export default function WordQuizPage() {
       }
 
       try {
-        const questionResponse = await wordQuizApi.getCurrentQuestion(parseInt(quizId))
+        const questionResponse = await lrsWordQuizApi.getCurrentQuestion(parseInt(quizId))
         if (questionResponse.data.success) {
           setCurrentQuestion(questionResponse.data.data.question)
           setProgress(questionResponse.data.data.progress)
@@ -80,7 +80,7 @@ export default function WordQuizPage() {
 
     setIsSubmitting(true)
     try {
-      const response = await wordQuizApi.submitAnswer(parseInt(quizId), {
+      const response = await lrsWordQuizApi.submitAnswer(parseInt(quizId), {
         question_id: currentQuestion.id,
         answer: userAnswer.trim(),
       })

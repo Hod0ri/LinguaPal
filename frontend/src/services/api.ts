@@ -1,7 +1,6 @@
 import axios from 'axios'
 import type {
   ApiResponse,
-  AuthTokens,
   User,
   UserProfile,
   Language,
