@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { quizApi } from '../services/api'
+import { lrsGanaQuizApi } from '../services/lrsMiddleware'
 import Header from '../components/Header'
 import type { GanaQuiz, CurrentQuestion, QuizProgress, QuizAnswerResponse } from '../types'
 
@@ -28,7 +28,7 @@ export default function QuizPage() {
       setIsLoading(true)
 
       // 먼저 퀴즈 상세 정보 조회
-      const quizResponse = await quizApi.getQuizDetail(parseInt(quizId))
+      const quizResponse = await lrsGanaQuizApi.getQuizDetail(parseInt(quizId))
 
       if (!quizResponse.data.success) {
         setError('퀴즈를 찾을 수 없습니다.')
@@ -46,7 +46,7 @@ export default function QuizPage() {
 
       // 현재 문제 조회
       try {
-        const questionResponse = await quizApi.getCurrentQuestion(parseInt(quizId))
+        const questionResponse = await lrsGanaQuizApi.getCurrentQuestion(parseInt(quizId))
         if (questionResponse.data.success) {
           setCurrentQuestion(questionResponse.data.data.question)
           setProgress(questionResponse.data.data.progress)
@@ -85,7 +85,7 @@ export default function QuizPage() {
 
     setIsSubmitting(true)
     try {
-      const response = await quizApi.submitAnswer(parseInt(quizId), {
+      const response = await lrsGanaQuizApi.submitAnswer(parseInt(quizId), {
         question_id: currentQuestion.id,
         answer: userAnswer.trim(),
       })

@@ -260,3 +260,6 @@ export interface WordQuizStats {
   weakest_words: UserWordStats[]
   strongest_words: UserWordStats[]
 }
+
+// Re-export xAPI types
+export * from './xapi'

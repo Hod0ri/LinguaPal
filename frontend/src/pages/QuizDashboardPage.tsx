@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { quizApi } from '../services/api'
+import { lrsGanaQuizApi } from '../services/lrsMiddleware'
 import Header from '../components/Header'
 import QuizSettingsModal from '../components/QuizSettingsModal'
 import type { QuizStats, GanaQuizListItem } from '../types'
@@ -16,8 +16,8 @@ export default function QuizDashboardPage() {
       try {
         setIsLoading(true)
         const [statsResponse, historyResponse] = await Promise.all([
-          quizApi.getQuizStats(),
-          quizApi.getQuizHistory({ limit: 10 }),
+          lrsGanaQuizApi.getQuizStats(),
+          lrsGanaQuizApi.getQuizHistory({ limit: 10 }),
         ])
 
         if (statsResponse.data.success) {

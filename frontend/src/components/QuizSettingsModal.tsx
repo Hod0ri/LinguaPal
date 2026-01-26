@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { quizApi } from '../services/api'
+import { lrsGanaQuizApi } from '../services/lrsMiddleware'
 import type { GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount } from '../types'
 
 interface QuizSettingsModalProps {
@@ -39,7 +39,7 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
     setError(null)
 
     try {
-      const response = await quizApi.startQuiz({
+      const response = await lrsGanaQuizApi.startQuiz({
         character_set: characterSet,
         quiz_type: quizType,
         question_count: questionCount,

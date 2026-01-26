@@ -128,19 +128,25 @@ def get_es_client() -> Optional[Elasticsearch]:
         user = getattr(settings, 'ELASTICSEARCH_USER', '')
         password = getattr(settings, 'ELASTICSEARCH_PASSWORD', '')
 
-        if user and password:
-            client = Elasticsearch(
-                hosts=[host],
-                basic_auth=(user, password)
-            )
-        else:
-            client = Elasticsearch(hosts=[host])
+        # Client options
+        client_options = {
+            'hosts': [host],
+            'request_timeout': 30,
+            'verify_certs': False,
+        }
 
-        # Test connection
-        if client.ping():
+        if user and password:
+            client_options['basic_auth'] = (user, password)
+
+        client = Elasticsearch(**client_options)
+
+        # Test connection using info() instead of ping() for ES 8.x compatibility
+        try:
+            info = client.info()
+            logger.debug(f"Connected to Elasticsearch: {info.get('version', {}).get('number', 'unknown')}")
             return client
-        else:
-            logger.warning("Elasticsearch ping failed")
+        except Exception as e:
+            logger.warning(f"Elasticsearch connection test failed: {e}")
             return None
 
     except ConnectionError as e:
@@ -161,6 +167,36 @@ def get_client() -> Optional[Elasticsearch]:
     if _es_client is None:
         _es_client = get_es_client()
     return _es_client
+
+
+# Module-level client accessor (lazy)
+class _ESClientAccessor:
+    """Lazy accessor for Elasticsearch client."""
+    _client = None
+
+    def __getattr__(self, name):
+        if self._client is None:
+            self._client = get_client()
+        if self._client is None:
+            raise RuntimeError("Elasticsearch client not available")
+        return getattr(self._client, name)
+
+    def __bool__(self):
+        if self._client is None:
+            self._client = get_client()
+        return self._client is not None
+
+
+es_client = _ESClientAccessor()
+
+
+def index_statement_to_dict(statement) -> Dict:
+    """
+    Convert XAPIStatement to Elasticsearch document dict.
+
+    Alias for _statement_to_doc for external use.
+    """
+    return _statement_to_doc(statement)
 
 
 def create_indices():

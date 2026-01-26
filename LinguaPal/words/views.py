@@ -1,3 +1,5 @@
+import uuid
+import logging
 import random
 from django.utils import timezone
 from django.db.models import Sum, Count, F, Q
@@ -5,6 +7,30 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+
+logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# xAPI Statement 비동기 생성 헬퍼
+# =============================================================================
+
+def queue_statement_task(statement_data):
+    """xAPI Statement 생성을 비동기 태스크로 큐에 넣기"""
+    try:
+        from lrs.tasks import create_statement_task
+        create_statement_task.delay(statement_data)
+    except Exception as exc:
+        logger.warning(f"Could not queue statement creation: {exc}")
+
+
+def queue_quiz_completion_statements(quiz_data):
+    """퀴즈 완료 시 여러 Statement (COMPLETED, PASSED/FAILED) 일괄 생성"""
+    try:
+        from lrs.tasks import create_quiz_statements_task
+        create_quiz_statements_task.delay(quiz_data)
+    except Exception as exc:
+        logger.warning(f"Could not queue quiz completion statements: {exc}")
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample, OpenApiResponse
 from accounts.permissions import IsStaffRole
 from accounts.utils import APIResponse, ErrorCode
@@ -634,6 +660,18 @@ def quiz_start(request):
             choices=choices
         )
 
+    # xAPI INITIALIZED Statement 생성 (비동기)
+    registration = uuid.uuid4()
+    quiz.registration = registration  # registration 저장을 위해 모델에 필드 필요시 추가
+    from lrs.services import QuizStatementService
+    statement_data = QuizStatementService.quiz_initialized(
+        user=request.user,
+        quiz=quiz,
+        quiz_type=quiz_type,
+        registration=registration
+    )
+    queue_statement_task(statement_data)
+
     # 첫 번째 문제 포함하여 응답
     response_serializer = GanaQuizSerializer(quiz)
     first_question = quiz.questions.first()
@@ -642,7 +680,8 @@ def quiz_start(request):
         message='Quiz started',
         data={
             'quiz': response_serializer.data,
-            'current_question': GanaQuizQuestionCurrentSerializer(first_question).data if first_question else None
+            'current_question': GanaQuizQuestionCurrentSerializer(first_question).data if first_question else None,
+            'registration': str(registration)
         },
         status_code=status.HTTP_201_CREATED
     )
@@ -722,6 +761,20 @@ def quiz_answer(request, quiz_id):
         user_stats.incorrect_count += 1
     user_stats.save()
 
+    # xAPI ANSWERED Statement 생성 (비동기)
+    from lrs.services import QuizStatementService
+    registration = getattr(quiz, 'registration', None)
+    answered_data = QuizStatementService.question_answered(
+        user=request.user,
+        quiz=quiz,
+        question=question,
+        user_answer=user_answer,
+        is_correct=is_correct,
+        correct_answer=correct_answer,
+        registration=registration
+    )
+    queue_statement_task(answered_data)
+
     # 다음 문제 확인
     next_question = quiz.questions.filter(is_correct__isnull=True).first()
     quiz_completed = next_question is None
@@ -729,6 +782,14 @@ def quiz_answer(request, quiz_id):
     if quiz_completed:
         quiz.is_completed = True
         quiz.completed_at = timezone.now()
+
+        # xAPI COMPLETED, PASSED/FAILED Statement 생성 (비동기)
+        completion_statements = QuizStatementService.quiz_completed(
+            user=request.user,
+            quiz=quiz,
+            registration=registration
+        )
+        queue_quiz_completion_statements({'statements': completion_statements})
 
     quiz.save()
 
@@ -1081,6 +1142,17 @@ def word_quiz_start(request):
             choices=choices
         )
 
+    # xAPI INITIALIZED Statement 생성 (비동기)
+    registration = uuid.uuid4()
+    from lrs.services import QuizStatementService
+    statement_data = QuizStatementService.quiz_initialized(
+        user=request.user,
+        quiz=quiz,
+        quiz_type=quiz_type,
+        registration=registration
+    )
+    queue_statement_task(statement_data)
+
     # 첫 번째 문제 포함하여 응답
     response_serializer = WordQuizSerializer(quiz)
     first_question = quiz.questions.first()
@@ -1089,7 +1161,8 @@ def word_quiz_start(request):
         message='Word quiz started',
         data={
             'quiz': response_serializer.data,
-            'current_question': WordQuizQuestionCurrentSerializer(first_question).data if first_question else None
+            'current_question': WordQuizQuestionCurrentSerializer(first_question).data if first_question else None,
+            'registration': str(registration)
         },
         status_code=status.HTTP_201_CREATED
     )
@@ -1169,6 +1242,20 @@ def word_quiz_answer(request, quiz_id):
         user_stats.incorrect_count += 1
     user_stats.save()
 
+    # xAPI ANSWERED Statement 생성 (비동기)
+    from lrs.services import QuizStatementService
+    registration = getattr(quiz, 'registration', None)
+    answered_data = QuizStatementService.question_answered(
+        user=request.user,
+        quiz=quiz,
+        question=question,
+        user_answer=user_answer,
+        is_correct=is_correct,
+        correct_answer=correct_answer,
+        registration=registration
+    )
+    queue_statement_task(answered_data)
+
     # 다음 문제 확인
     next_question = quiz.questions.filter(is_correct__isnull=True).first()
     quiz_completed = next_question is None
@@ -1176,6 +1263,14 @@ def word_quiz_answer(request, quiz_id):
     if quiz_completed:
         quiz.is_completed = True
         quiz.completed_at = timezone.now()
+
+        # xAPI COMPLETED, PASSED/FAILED Statement 생성 (비동기)
+        completion_statements = QuizStatementService.quiz_completed(
+            user=request.user,
+            quiz=quiz,
+            registration=registration
+        )
+        queue_quiz_completion_statements({'statements': completion_statements})
 
     quiz.save()
 

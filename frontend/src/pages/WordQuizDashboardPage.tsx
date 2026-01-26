@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { wordQuizApi } from '../services/api'
+import { lrsWordQuizApi } from '../services/lrsMiddleware'
 import Header from '../components/Header'
 import WordQuizSettingsModal from '../components/WordQuizSettingsModal'
 import type { WordQuizStats, WordQuizListItem } from '../types'
@@ -16,8 +16,8 @@ export default function WordQuizDashboardPage() {
       try {
         setIsLoading(true)
         const [statsResponse, historyResponse] = await Promise.all([
-          wordQuizApi.getQuizStats(),
-          wordQuizApi.getQuizHistory({ limit: 10 }),
+          lrsWordQuizApi.getQuizStats(),
+          lrsWordQuizApi.getQuizHistory({ limit: 10 }),
         ])
 
         if (statsResponse.data.success) {
