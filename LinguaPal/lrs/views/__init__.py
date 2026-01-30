@@ -22,7 +22,12 @@ from .dashboard import (
     DashboardTrendsView,
     DashboardRealtimeView,
     StatementListView,
+    ActivityListView,
     LRSCredentialViewSet,
+    DifficultyAnalysisView,
+    EngagementMetricsView,
+    RetentionMetricsView,
+    GrowthMetricsView,
 )
 
 __all__ = [
@@ -39,5 +44,10 @@ __all__ = [
     'DashboardTrendsView',
     'DashboardRealtimeView',
     'StatementListView',
+    'ActivityListView',
     'LRSCredentialViewSet',
+    'DifficultyAnalysisView',
+    'EngagementMetricsView',
+    'RetentionMetricsView',
+    'GrowthMetricsView',
 ]

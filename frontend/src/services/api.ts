@@ -38,6 +38,12 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+
+  const apiKey = import.meta.env.VITE_API_KEY
+  if (apiKey) {
+    config.headers['X-API-KEY'] = apiKey
+  }
+
   return config
 })
 

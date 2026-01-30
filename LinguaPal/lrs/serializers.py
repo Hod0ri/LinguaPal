@@ -160,6 +160,8 @@ class DashboardOverviewSerializer(serializers.Serializer):
     overall_accuracy = serializers.FloatField()
     pass_rate = serializers.FloatField()
     quiz_type_breakdown = serializers.DictField()
+    activity_breakdown = serializers.ListField(required=False, default=list)
+    source = serializers.CharField(required=False, default='database')
 
 
 class DashboardUserStatsSerializer(serializers.Serializer):

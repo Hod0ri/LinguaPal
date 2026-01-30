@@ -25,7 +25,12 @@ from .views import (
     DashboardTrendsView,
     DashboardRealtimeView,
     StatementListView,
+    ActivityListView,
     LRSCredentialViewSet,
+    DifficultyAnalysisView,
+    EngagementMetricsView,
+    RetentionMetricsView,
+    GrowthMetricsView,
 )
 
 app_name = 'lrs'
@@ -70,6 +75,16 @@ dashboard_patterns = [
     path('trends/', DashboardTrendsView.as_view(), name='dashboard-trends-slash'),
     path('realtime', DashboardRealtimeView.as_view(), name='dashboard-realtime'),
     path('realtime/', DashboardRealtimeView.as_view(), name='dashboard-realtime-slash'),
+    path('activities', ActivityListView.as_view(), name='dashboard-activities'),
+    path('activities/', ActivityListView.as_view(), name='dashboard-activities-slash'),
+    path('difficulty', DifficultyAnalysisView.as_view(), name='dashboard-difficulty'),
+    path('difficulty/', DifficultyAnalysisView.as_view(), name='dashboard-difficulty-slash'),
+    path('engagement', EngagementMetricsView.as_view(), name='dashboard-engagement'),
+    path('engagement/', EngagementMetricsView.as_view(), name='dashboard-engagement-slash'),
+    path('retention', RetentionMetricsView.as_view(), name='dashboard-retention'),
+    path('retention/', RetentionMetricsView.as_view(), name='dashboard-retention-slash'),
+    path('growth', GrowthMetricsView.as_view(), name='dashboard-growth'),
+    path('growth/', GrowthMetricsView.as_view(), name='dashboard-growth-slash'),
 ]
 
 urlpatterns = [

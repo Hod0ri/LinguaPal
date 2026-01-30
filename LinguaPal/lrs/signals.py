@@ -21,14 +21,22 @@ def index_statement_on_save(sender, instance, created, **kwargs):
     Index xAPI statement in Elasticsearch when saved.
 
     Uses Celery task for async indexing.
+    Also ensures the associated activity is indexed.
     """
     try:
-        from .tasks import index_statement_task
+        from .tasks import index_statement_task, ensure_activity_indexed_task
+
+        # Index the statement
         index_statement_task.delay(str(instance.id))
         logger.debug(f"Queued statement for ES indexing: {instance.id}")
+
+        # Also ensure the activity is indexed and stats updated
+        ensure_activity_indexed_task.delay(str(instance.id))
+        logger.debug(f"Queued activity indexing for statement: {instance.id}")
+
     except Exception as exc:
         # Don't fail if Celery is not available
-        logger.warning(f"Could not queue statement indexing: {exc}")
+        logger.warning(f"Could not queue statement/activity indexing: {exc}")
 
 
 @receiver(post_delete, sender=XAPIStatement)

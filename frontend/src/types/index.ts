@@ -3,7 +3,7 @@ export interface User {
   email: string
   name: string
   profile_image: string | null
-  role: 'ADMIN' | 'STAFF' | 'USER'
+  role: 'admin' | 'staff' | 'user'
 }
 
 export interface Language {
@@ -263,3 +263,6 @@ export interface WordQuizStats {
 
 // Re-export xAPI types
 export * from './xapi'
+
+// Re-export admin types
+export * from './admin'

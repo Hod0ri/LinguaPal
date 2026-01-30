@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminProtectedRoute from './components/AdminProtectedRoute'
 import LoginPage from './pages/LoginPage'
 import CreateProfilePage from './pages/CreateProfilePage'
 import MainPage from './pages/MainPage'
@@ -11,6 +12,7 @@ import QuizDashboardPage from './pages/QuizDashboardPage'
 import WordQuizPage from './pages/WordQuizPage'
 import WordQuizResultPage from './pages/WordQuizResultPage'
 import WordQuizDashboardPage from './pages/WordQuizDashboardPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 
 function App() {
   const { isLoading } = useAuth()
@@ -96,6 +98,14 @@ function App() {
           <ProtectedRoute>
             <WordQuizPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/dashboard"
+        element={
+          <AdminProtectedRoute>
+            <AdminDashboardPage />
+          </AdminProtectedRoute>
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
