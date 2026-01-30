@@ -361,7 +361,11 @@ class DashboardAPITest(APITestCase):
         response = self.client.get('/api/v1/lrs/dashboard/trends?days=7')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIsInstance(response.data, list)
+        # New format includes period, days, trends list, and source
+        self.assertIn('period', response.data)
+        self.assertIn('days', response.data)
+        self.assertIn('trends', response.data)
+        self.assertIsInstance(response.data['trends'], list)
 
     def test_dashboard_realtime(self):
         """Test dashboard realtime endpoint."""

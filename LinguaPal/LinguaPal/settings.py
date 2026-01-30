@@ -284,3 +284,6 @@ ELASTICSEARCH_PASSWORD = os.environ.get('ELASTICSEARCH_PASSWORD', '')
 XAPI_VERSION = '1.0.3'
 CMI5_VERSION = '1.0'
 LRS_MASTERY_SCORE = 0.8  # 80% pass threshold
+
+# API Key Configuration
+API_KEY = os.environ.get('API_KEY')

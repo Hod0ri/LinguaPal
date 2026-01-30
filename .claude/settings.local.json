@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(python manage.py startapp:*)",
+      "Bash(python manage.py makemigrations:*)",
+      "Bash(...venvScriptsactivate)",
+      "Bash(d:/Development/Git_Project/LinguaPal/.venv/Scripts/python.exe:*)",
+      "Bash(d:/Development/Git_Project/LinguaPal/.venv/Scripts/pip.exe install:*)",
+      "Bash(d:/Development/Git_Project/LinguaPal/.venv/Scripts/pip.exe:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker-compose:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(findstr:*)",
+      "Bash(find:*)",
+      "Bash(set -a)",
+      "Bash(source .env)",
+      "Bash(set:*)",
+      "Bash(echo:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(docker exec:*)",
+      "Bash(jq:*)",
+      "Bash(python:*)",
+      "Bash(dir:*)",
+      "Bash(docker ps:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(docker compose:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzY5NDgwODMxLCJpYXQiOjE3Njk0NzcyMzEsImp0aSI6ImRmMWQ1NjUxMmMwMDQyYzc5OTY1MGE0NTBmMzU4ZDhjIiwidXNlcl9pZCI6IjEifQ.6XFr387zvPmHZg8AJwTiO9-KssyzWy_XL0qsCQxPEPE\")"
+    ]
+  }
+}

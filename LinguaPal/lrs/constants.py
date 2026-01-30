@@ -170,3 +170,149 @@ LINGUAPAL_BASE_IRI = 'https://linguapal.com'
 
 # Default mastery score (80%)
 DEFAULT_MASTERY_SCORE = 0.8
+
+
+class ActivityID:
+    """
+    Activity ID generator for LinguaPal quizzes.
+
+    Activity IDs are structured to group by quiz type and language/character set.
+    This allows for meaningful analytics and comparison.
+
+    Patterns:
+    - Gana Quiz: activity/gana/{character_set}/{quiz_type}
+    - Word Quiz: activity/word/{language_code}/{quiz_type}
+    """
+
+    @classmethod
+    def gana_quiz(cls, character_set: str, quiz_type: str) -> str:
+        """
+        Generate Activity ID for Gana Quiz.
+
+        Args:
+            character_set: 'hiragana', 'katakana', or 'all'
+            quiz_type: 'gana_to_romaji', 'romaji_to_gana_select', 'romaji_to_gana_input'
+
+        Returns:
+            Full Activity IRI
+        """
+        return f"{LINGUAPAL_BASE_IRI}/activity/gana/{character_set}/{quiz_type}"
+
+    @classmethod
+    def gana_quiz_instance(cls, character_set: str, quiz_type: str, quiz_id: int) -> str:
+        """Generate Activity ID for a specific Gana Quiz instance."""
+        return f"{LINGUAPAL_BASE_IRI}/activity/gana/{character_set}/{quiz_type}/session/{quiz_id}"
+
+    @classmethod
+    def gana_question(cls, character_set: str, quiz_type: str, quiz_id: int, question_id: int) -> str:
+        """Generate Activity ID for a Gana Quiz question."""
+        return f"{LINGUAPAL_BASE_IRI}/activity/gana/{character_set}/{quiz_type}/session/{quiz_id}/question/{question_id}"
+
+    @classmethod
+    def word_quiz(cls, language_code: str, quiz_type: str) -> str:
+        """
+        Generate Activity ID for Word Quiz.
+
+        Args:
+            language_code: Language code (e.g., 'es', 'ja', 'ko')
+            quiz_type: 'word_to_native', 'native_to_word_select', 'native_to_word_input'
+
+        Returns:
+            Full Activity IRI
+        """
+        return f"{LINGUAPAL_BASE_IRI}/activity/word/{language_code}/{quiz_type}"
+
+    @classmethod
+    def word_quiz_instance(cls, language_code: str, quiz_type: str, quiz_id: int) -> str:
+        """Generate Activity ID for a specific Word Quiz instance."""
+        return f"{LINGUAPAL_BASE_IRI}/activity/word/{language_code}/{quiz_type}/session/{quiz_id}"
+
+    @classmethod
+    def word_question(cls, language_code: str, quiz_type: str, quiz_id: int, question_id: int) -> str:
+        """Generate Activity ID for a Word Quiz question."""
+        return f"{LINGUAPAL_BASE_IRI}/activity/word/{language_code}/{quiz_type}/session/{quiz_id}/question/{question_id}"
+
+    @classmethod
+    def parse(cls, activity_id: str) -> dict:
+        """
+        Parse an Activity ID into its components.
+
+        Returns:
+            Dict with keys: category, subcategory, quiz_type, quiz_id, question_id
+        """
+        # Remove base IRI if present
+        path = activity_id.replace(LINGUAPAL_BASE_IRI + '/', '')
+        if path.startswith('activity/'):
+            path = path[9:]  # Remove 'activity/'
+
+        parts = path.split('/')
+        result = {
+            'category': parts[0] if len(parts) > 0 else None,  # 'gana' or 'word'
+            'subcategory': parts[1] if len(parts) > 1 else None,  # character_set or language_code
+            'quiz_type': parts[2] if len(parts) > 2 else None,
+            'quiz_id': None,
+            'question_id': None,
+        }
+
+        # Parse session/quiz_id
+        if len(parts) > 4 and parts[3] == 'session':
+            try:
+                result['quiz_id'] = int(parts[4])
+            except (ValueError, IndexError):
+                pass
+
+        # Parse question_id
+        if len(parts) > 6 and parts[5] == 'question':
+            try:
+                result['question_id'] = int(parts[6])
+            except (ValueError, IndexError):
+                pass
+
+        return result
+
+
+# Activity name templates (multilingual)
+ACTIVITY_NAMES = {
+    # Gana Quiz
+    'gana/hiragana/gana_to_romaji': {'ko': '히라가나 → 로마자', 'en': 'Hiragana to Romaji'},
+    'gana/hiragana/romaji_to_gana_select': {'ko': '로마자 → 히라가나 (선택)', 'en': 'Romaji to Hiragana (Select)'},
+    'gana/hiragana/romaji_to_gana_input': {'ko': '로마자 → 히라가나 (입력)', 'en': 'Romaji to Hiragana (Input)'},
+    'gana/katakana/gana_to_romaji': {'ko': '가타카나 → 로마자', 'en': 'Katakana to Romaji'},
+    'gana/katakana/romaji_to_gana_select': {'ko': '로마자 → 가타카나 (선택)', 'en': 'Romaji to Katakana (Select)'},
+    'gana/katakana/romaji_to_gana_input': {'ko': '로마자 → 가타카나 (입력)', 'en': 'Romaji to Katakana (Input)'},
+    'gana/all/gana_to_romaji': {'ko': '전체 가나 → 로마자', 'en': 'All Gana to Romaji'},
+    'gana/all/romaji_to_gana_select': {'ko': '로마자 → 전체 가나 (선택)', 'en': 'Romaji to All Gana (Select)'},
+    'gana/all/romaji_to_gana_input': {'ko': '로마자 → 전체 가나 (입력)', 'en': 'Romaji to All Gana (Input)'},
+
+    # Word Quiz (template - language name will be inserted)
+    'word/word_to_native': {'ko': '{language} → 모국어', 'en': '{language} to Native'},
+    'word/native_to_word_select': {'ko': '모국어 → {language} (선택)', 'en': 'Native to {language} (Select)'},
+    'word/native_to_word_input': {'ko': '모국어 → {language} (입력)', 'en': 'Native to {language} (Input)'},
+}
+
+
+def get_activity_name(category: str, subcategory: str, quiz_type: str, language_name: str = None, lang: str = 'ko') -> str:
+    """
+    Get the display name for an activity.
+
+    Args:
+        category: 'gana' or 'word'
+        subcategory: character_set for gana, language_code for word
+        quiz_type: The quiz type
+        language_name: Language name for word quizzes (e.g., '스페인어')
+        lang: Display language ('ko' or 'en')
+
+    Returns:
+        Activity display name
+    """
+    if category == 'gana':
+        key = f"gana/{subcategory}/{quiz_type}"
+        names = ACTIVITY_NAMES.get(key, {})
+        return names.get(lang, f"{subcategory} {quiz_type}")
+    elif category == 'word':
+        key = f"word/{quiz_type}"
+        names = ACTIVITY_NAMES.get(key, {})
+        template = names.get(lang, f"{{language}} {quiz_type}")
+        return template.format(language=language_name or subcategory)
+
+    return f"{category}/{subcategory}/{quiz_type}"

@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Index names
 STATEMENT_INDEX = 'xapi_statements'
 SESSION_INDEX = 'cmi5_sessions'
+ACTIVITY_INDEX = 'xapi_activities'
 
 # Index mappings
 STATEMENT_MAPPING = {
@@ -49,6 +50,15 @@ STATEMENT_MAPPING = {
                     "type": {"type": "keyword"},
                     "id": {"type": "keyword"},
                     "definition": {"type": "object", "enabled": False}
+                }
+            },
+            "activity": {
+                "properties": {
+                    "category": {"type": "keyword"},
+                    "subcategory": {"type": "keyword"},
+                    "quiz_type": {"type": "keyword"},
+                    "language_code": {"type": "keyword"},
+                    "character_set": {"type": "keyword"}
                 }
             },
             "result": {
@@ -100,6 +110,45 @@ SESSION_MAPPING = {
             "launched_at": {"type": "date"},
             "initialized_at": {"type": "date"},
             "terminated_at": {"type": "date"}
+        }
+    },
+    "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0
+    }
+}
+
+ACTIVITY_MAPPING = {
+    "mappings": {
+        "properties": {
+            "id": {"type": "keyword"},
+            "category": {"type": "keyword"},
+            "subcategory": {"type": "keyword"},
+            "quiz_type": {"type": "keyword"},
+            "language_code": {"type": "keyword"},
+            "language_name": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword"}}
+            },
+            "character_set": {"type": "keyword"},
+            "name": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword"}}
+            },
+            "description": {"type": "text"},
+            "type": {"type": "keyword"},
+            "stats": {
+                "properties": {
+                    "total_attempts": {"type": "long"},
+                    "total_completions": {"type": "long"},
+                    "total_passes": {"type": "long"},
+                    "total_fails": {"type": "long"},
+                    "avg_score": {"type": "float"},
+                    "unique_users": {"type": "long"}
+                }
+            },
+            "created_at": {"type": "date"},
+            "updated_at": {"type": "date"}
         }
     },
     "settings": {
@@ -217,6 +266,11 @@ def create_indices():
             client.indices.create(index=SESSION_INDEX, body=SESSION_MAPPING)
             logger.info(f"Created index: {SESSION_INDEX}")
 
+        # Create activity index
+        if not client.indices.exists(index=ACTIVITY_INDEX):
+            client.indices.create(index=ACTIVITY_INDEX, body=ACTIVITY_MAPPING)
+            logger.info(f"Created index: {ACTIVITY_INDEX}")
+
         return True
 
     except Exception as e:
@@ -238,6 +292,10 @@ def delete_indices():
         if client.indices.exists(index=SESSION_INDEX):
             client.indices.delete(index=SESSION_INDEX)
             logger.info(f"Deleted index: {SESSION_INDEX}")
+
+        if client.indices.exists(index=ACTIVITY_INDEX):
+            client.indices.delete(index=ACTIVITY_INDEX)
+            logger.info(f"Deleted index: {ACTIVITY_INDEX}")
 
         return True
 
@@ -379,6 +437,198 @@ def index_session(session) -> bool:
         return False
 
 
+def index_activity(activity_data: Dict[str, Any]) -> bool:
+    """
+    Index or update an activity in Elasticsearch.
+
+    Args:
+        activity_data: Dict containing activity information
+
+    Returns:
+        True if successful, False otherwise
+    """
+    client = get_client()
+    if not client:
+        return False
+
+    try:
+        activity_id = activity_data.get('id')
+        if not activity_id:
+            logger.error("Activity ID is required")
+            return False
+
+        # Use upsert to create or update
+        client.index(
+            index=ACTIVITY_INDEX,
+            id=activity_id,
+            document=activity_data
+        )
+        return True
+
+    except Exception as e:
+        logger.error(f"Error indexing activity {activity_data.get('id')}: {e}")
+        return False
+
+
+def get_or_create_activity(activity_id: str, activity_data: Dict[str, Any]) -> Dict:
+    """
+    Get an activity from ES or create it if it doesn't exist.
+
+    Args:
+        activity_id: The activity IRI
+        activity_data: Data to use if creating new activity
+
+    Returns:
+        Activity document from ES
+    """
+    client = get_client()
+    if not client:
+        return activity_data
+
+    try:
+        result = client.get(index=ACTIVITY_INDEX, id=activity_id)
+        return result['_source']
+    except NotFoundError:
+        # Create new activity
+        from django.utils import timezone
+        activity_data['id'] = activity_id
+        activity_data['created_at'] = timezone.now().isoformat()
+        activity_data['updated_at'] = timezone.now().isoformat()
+        activity_data['stats'] = {
+            'total_attempts': 0,
+            'total_completions': 0,
+            'total_passes': 0,
+            'total_fails': 0,
+            'avg_score': 0.0,
+            'unique_users': 0
+        }
+        index_activity(activity_data)
+        return activity_data
+    except Exception as e:
+        logger.error(f"Error getting activity {activity_id}: {e}")
+        return activity_data
+
+
+def update_activity_stats(activity_id: str, verb: str, user_id: int, score: float = None) -> bool:
+    """
+    Update activity statistics when a statement is created.
+
+    Args:
+        activity_id: The activity IRI
+        verb: The verb ID (initialized, completed, passed, failed)
+        user_id: The user who performed the action
+        score: Optional score for completed/passed/failed
+
+    Returns:
+        True if successful, False otherwise
+    """
+    client = get_client()
+    if not client:
+        return False
+
+    try:
+        # Use painless script to update stats atomically
+        script_parts = []
+        params = {}
+
+        if 'initialized' in verb:
+            script_parts.append("ctx._source.stats.total_attempts += 1")
+
+        if 'completed' in verb:
+            script_parts.append("ctx._source.stats.total_completions += 1")
+            if score is not None:
+                script_parts.append("""
+                    double oldAvg = ctx._source.stats.avg_score;
+                    long count = ctx._source.stats.total_completions;
+                    ctx._source.stats.avg_score = ((oldAvg * (count - 1)) + params.score) / count
+                """)
+                params['score'] = score
+
+        if 'passed' in verb:
+            script_parts.append("ctx._source.stats.total_passes += 1")
+
+        if 'failed' in verb:
+            script_parts.append("ctx._source.stats.total_fails += 1")
+
+        if not script_parts:
+            return True
+
+        # Update timestamp
+        script_parts.append("ctx._source.updated_at = params.now")
+        params['now'] = __import__('django.utils.timezone', fromlist=['timezone']).timezone.now().isoformat()
+
+        script = "; ".join(script_parts)
+
+        client.update(
+            index=ACTIVITY_INDEX,
+            id=activity_id,
+            body={
+                'script': {
+                    'source': script,
+                    'params': params
+                }
+            }
+        )
+        return True
+
+    except NotFoundError:
+        logger.warning(f"Activity not found for stats update: {activity_id}")
+        return False
+    except Exception as e:
+        logger.error(f"Error updating activity stats {activity_id}: {e}")
+        return False
+
+
+def search_activities(query_params: Dict[str, Any]) -> Dict:
+    """
+    Search activities with filters.
+
+    Args:
+        query_params: Dict with keys like 'category', 'subcategory', 'quiz_type', 'language_code'
+
+    Returns:
+        Elasticsearch search results
+    """
+    client = get_client()
+    if not client:
+        return {'hits': {'total': {'value': 0}, 'hits': []}}
+
+    must = []
+
+    if 'category' in query_params:
+        must.append({'term': {'category': query_params['category']}})
+
+    if 'subcategory' in query_params:
+        must.append({'term': {'subcategory': query_params['subcategory']}})
+
+    if 'quiz_type' in query_params:
+        must.append({'term': {'quiz_type': query_params['quiz_type']}})
+
+    if 'language_code' in query_params:
+        must.append({'term': {'language_code': query_params['language_code']}})
+
+    if 'character_set' in query_params:
+        must.append({'term': {'character_set': query_params['character_set']}})
+
+    # Build query
+    if must:
+        query = {'bool': {'must': must}}
+    else:
+        query = {'match_all': {}}
+
+    body = {
+        'query': query,
+        'sort': [{'stats.total_attempts': 'desc'}],
+        'size': query_params.get('limit', 100)
+    }
+
+    try:
+        return client.search(index=ACTIVITY_INDEX, body=body)
+    except Exception as e:
+        logger.error(f"Activity search error: {e}")
+        return {'hits': {'total': {'value': 0}, 'hits': []}}
+
+
 def search_statements(query_params: Dict[str, Any]) -> Dict:
     """
     Search statements with xAPI-style parameters.
@@ -470,6 +720,11 @@ def aggregate_stats(aggregations: Dict[str, Any], filters: Dict = None) -> Dict:
 
 def _statement_to_doc(statement) -> Dict:
     """Convert XAPIStatement to Elasticsearch document."""
+    from .constants import ActivityID
+
+    # Parse activity ID to extract metadata
+    activity_meta = ActivityID.parse(statement.object_id)
+
     doc = {
         'id': str(statement.id),
         'actor': {
@@ -485,6 +740,13 @@ def _statement_to_doc(statement) -> Dict:
             'type': statement.object_type,
             'id': statement.object_id,
             'definition': statement.object_definition,
+        },
+        'activity': {
+            'category': activity_meta.get('category'),
+            'subcategory': activity_meta.get('subcategory'),
+            'quiz_type': activity_meta.get('quiz_type'),
+            'language_code': activity_meta.get('subcategory') if activity_meta.get('category') == 'word' else None,
+            'character_set': activity_meta.get('subcategory') if activity_meta.get('category') == 'gana' else None,
         },
         'result': {
             'success': statement.result_success,

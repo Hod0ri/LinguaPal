@@ -14,6 +14,7 @@ from lrs.elasticsearch import (
     get_client,
     STATEMENT_INDEX,
     SESSION_INDEX,
+    ACTIVITY_INDEX,
 )
 
 
@@ -69,7 +70,7 @@ class Command(BaseCommand):
         """Check and display index status."""
         self.stdout.write('\nIndex Status:')
 
-        for index_name in [STATEMENT_INDEX, SESSION_INDEX]:
+        for index_name in [STATEMENT_INDEX, SESSION_INDEX, ACTIVITY_INDEX]:
             if client.indices.exists(index=index_name):
                 # Get index stats
                 stats = client.indices.stats(index=index_name)

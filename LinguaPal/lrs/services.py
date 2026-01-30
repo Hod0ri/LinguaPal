@@ -14,7 +14,8 @@ from django.utils import timezone
 from .models import XAPIStatement, CMI5Session
 from .constants import (
     XAPIVerb, CMI5Verb, XAPIActivityType, QuizType,
-    LINGUAPAL_BASE_IRI, DEFAULT_MASTERY_SCORE
+    LINGUAPAL_BASE_IRI, DEFAULT_MASTERY_SCORE,
+    ActivityID, get_activity_name
 )
 
 
@@ -232,7 +233,65 @@ class StatementBuilder:
 class QuizStatementService:
     """
     Service for creating quiz-related xAPI statements.
+
+    Uses ActivityID to generate structured Activity IRIs that group by:
+    - Gana Quiz: character_set + quiz_type (e.g., hiragana + gana_to_romaji)
+    - Word Quiz: language_code + quiz_type (e.g., es + word_to_native)
     """
+
+    @staticmethod
+    def _get_activity_info(quiz) -> Dict[str, Any]:
+        """
+        Extract activity information from a quiz.
+
+        Returns:
+            Dict with category, subcategory, quiz_type, activity_id, activity_name
+        """
+        is_gana = hasattr(quiz, 'character_set')
+
+        if is_gana:
+            character_set = quiz.character_set
+            quiz_type = quiz.quiz_type
+            activity_id = ActivityID.gana_quiz_instance(character_set, quiz_type, quiz.id)
+            activity_name = get_activity_name('gana', character_set, quiz_type)
+            return {
+                'category': 'gana',
+                'subcategory': character_set,
+                'quiz_type': quiz_type,
+                'activity_id': activity_id,
+                'activity_name': activity_name,
+                'language_code': None,
+                'language_name': None,
+            }
+        else:
+            language_code = quiz.learning_language.code
+            language_name = quiz.learning_language.name_ko  # Use Korean name
+            quiz_type = quiz.quiz_type
+            activity_id = ActivityID.word_quiz_instance(language_code, quiz_type, quiz.id)
+            activity_name = get_activity_name('word', language_code, quiz_type, language_name)
+            return {
+                'category': 'word',
+                'subcategory': language_code,
+                'quiz_type': quiz_type,
+                'activity_id': activity_id,
+                'activity_name': activity_name,
+                'language_code': language_code,
+                'language_name': language_name,
+            }
+
+    @staticmethod
+    def _get_question_activity_id(quiz, question) -> str:
+        """Generate Activity ID for a question."""
+        is_gana = hasattr(quiz, 'character_set')
+
+        if is_gana:
+            return ActivityID.gana_question(
+                quiz.character_set, quiz.quiz_type, quiz.id, question.id
+            )
+        else:
+            return ActivityID.word_question(
+                quiz.learning_language.code, quiz.quiz_type, quiz.id, question.id
+            )
 
     @staticmethod
     def quiz_initialized(
@@ -246,20 +305,22 @@ class QuizStatementService:
 
         Returns data dict for async task.
         """
-        # Determine quiz category
-        is_gana = hasattr(quiz, 'character_set')
-        category = QuizType.GANA_QUIZ if is_gana else QuizType.WORD_QUIZ
+        activity_info = QuizStatementService._get_activity_info(quiz)
 
         return {
             'actor_user_id': user.id,
             'verb': 'initialized',
-            'object_id': f"quiz/{category}/{quiz.id}",
-            'object_name': f"{'가나' if is_gana else '단어'} 퀴즈 #{quiz.id}",
+            'object_id': activity_info['activity_id'],
+            'object_name': activity_info['activity_name'],
             'object_type': XAPIActivityType.ASSESSMENT,
             'context': {
                 'registration': str(registration) if registration else str(uuid.uuid4()),
                 'quiz_type': quiz_type,
                 'total_questions': quiz.total_questions,
+                'category': activity_info['category'],
+                'subcategory': activity_info['subcategory'],
+                'language_code': activity_info.get('language_code'),
+                'language_name': activity_info.get('language_name'),
             }
         }
 
@@ -276,13 +337,13 @@ class QuizStatementService:
         """
         Create data for ANSWERED statement when question is answered.
         """
-        is_gana = hasattr(quiz, 'character_set')
-        category = QuizType.GANA_QUIZ if is_gana else QuizType.WORD_QUIZ
+        activity_info = QuizStatementService._get_activity_info(quiz)
+        question_activity_id = QuizStatementService._get_question_activity_id(quiz, question)
 
         return {
             'actor_user_id': user.id,
             'verb': 'answered',
-            'object_id': f"quiz/{category}/{quiz.id}/question/{question.id}",
+            'object_id': question_activity_id,
             'object_name': f"문제 #{question.question_number}",
             'object_type': XAPIActivityType.QUESTION,
             'result': {
@@ -294,6 +355,9 @@ class QuizStatementService:
                 'quiz_type': getattr(quiz, 'quiz_type', None),
                 'question_number': question.question_number,
                 'correct_answer': correct_answer,
+                'category': activity_info['category'],
+                'subcategory': activity_info['subcategory'],
+                'language_code': activity_info.get('language_code'),
             }
         }
 
@@ -308,8 +372,7 @@ class QuizStatementService:
 
         Returns list of statement data dicts.
         """
-        is_gana = hasattr(quiz, 'character_set')
-        category = QuizType.GANA_QUIZ if is_gana else QuizType.WORD_QUIZ
+        activity_info = QuizStatementService._get_activity_info(quiz)
 
         score_scaled = quiz.correct_count / quiz.total_questions if quiz.total_questions > 0 else 0
         mastery_score = getattr(settings, 'LRS_MASTERY_SCORE', DEFAULT_MASTERY_SCORE)
@@ -323,8 +386,8 @@ class QuizStatementService:
         statements.append({
             'actor_user_id': user.id,
             'verb': 'completed',
-            'object_id': f"quiz/{category}/{quiz.id}",
-            'object_name': f"{'가나' if is_gana else '단어'} 퀴즈 #{quiz.id}",
+            'object_id': activity_info['activity_id'],
+            'object_name': activity_info['activity_name'],
             'object_type': XAPIActivityType.ASSESSMENT,
             'result': {
                 'completion': True,
@@ -336,6 +399,9 @@ class QuizStatementService:
             'context': {
                 'registration': reg_str,
                 'quiz_type': getattr(quiz, 'quiz_type', None),
+                'category': activity_info['category'],
+                'subcategory': activity_info['subcategory'],
+                'language_code': activity_info.get('language_code'),
             }
         })
 
@@ -343,8 +409,8 @@ class QuizStatementService:
         statements.append({
             'actor_user_id': user.id,
             'verb': 'passed' if passed else 'failed',
-            'object_id': f"quiz/{category}/{quiz.id}",
-            'object_name': f"{'가나' if is_gana else '단어'} 퀴즈 #{quiz.id}",
+            'object_id': activity_info['activity_id'],
+            'object_name': activity_info['activity_name'],
             'object_type': XAPIActivityType.ASSESSMENT,
             'result': {
                 'success': passed,
@@ -353,6 +419,9 @@ class QuizStatementService:
             'context': {
                 'registration': reg_str,
                 'mastery_score': mastery_score,
+                'category': activity_info['category'],
+                'subcategory': activity_info['subcategory'],
+                'language_code': activity_info.get('language_code'),
             }
         })
 
