@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { wordQuizApi } from '../services/api'
-import Header from '../components/Header'
+import Layout from '../components/Layout'
 import WordQuizSettingsModal from '../components/WordQuizSettingsModal'
 import type { WordQuiz } from '../types'
 
@@ -37,26 +37,24 @@ export default function WordQuizResultPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
-        <Header />
+      <Layout>
         <div className="flex items-center justify-center h-[calc(100vh-64px)]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
         </div>
-      </div>
+      </Layout>
     )
   }
 
   if (error || !quiz) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
-        <Header />
+      <Layout>
         <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4">
           <p className="text-slate-600">{error || '퀴즈를 찾을 수 없습니다.'}</p>
           <button onClick={() => navigate('/')} className="btn-primary">
             메인으로 돌아가기
           </button>
         </div>
-      </div>
+      </Layout>
     )
   }
 
@@ -82,10 +80,8 @@ export default function WordQuizResultPage() {
   const incorrectQuestions = quiz.questions.filter((q) => !q.is_correct)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
-      <Header />
-
-      <main className="max-w-2xl mx-auto py-8 px-4">
+    <Layout>
+      <div className="max-w-2xl mx-auto py-8 px-4">
         <div className="card p-8 text-center mb-6">
           <div className="relative w-40 h-40 mx-auto mb-6">
             <svg className="w-full h-full transform -rotate-90">
@@ -196,9 +192,9 @@ export default function WordQuizResultPage() {
             다시 도전
           </button>
         </div>
-      </main>
+      </div>
 
       <WordQuizSettingsModal isOpen={showQuizModal} onClose={() => setShowQuizModal(false)} />
-    </div>
+    </Layout>
   )
 }

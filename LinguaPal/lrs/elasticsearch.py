@@ -725,6 +725,25 @@ def _statement_to_doc(statement) -> Dict:
     # Parse activity ID to extract metadata
     activity_meta = ActivityID.parse(statement.object_id)
 
+    # If ActivityID.parse doesn't provide category, try context_extensions
+    # This handles flashcard and other non-standard activity types
+    ctx_ext = statement.context_extensions or {}
+    category = activity_meta.get('category') or ctx_ext.get('category')
+
+    # For flashcard, context_extensions has the correct display values
+    # ActivityID.parse returns "session" and session_id which are not useful for display
+    if category == 'flashcard':
+        subcategory = ctx_ext.get('subcategory') or activity_meta.get('subcategory')
+        quiz_type = ctx_ext.get('quiz_type') or activity_meta.get('quiz_type')
+    else:
+        subcategory = activity_meta.get('subcategory') or ctx_ext.get('subcategory')
+        quiz_type = activity_meta.get('quiz_type') or ctx_ext.get('quiz_type')
+    language_code = ctx_ext.get('language_code') or (
+        activity_meta.get('subcategory') if activity_meta.get('category') == 'word' else None
+    )
+    language_name = ctx_ext.get('language_name')
+    character_set = activity_meta.get('subcategory') if activity_meta.get('category') == 'gana' else None
+
     doc = {
         'id': str(statement.id),
         'actor': {
@@ -742,11 +761,12 @@ def _statement_to_doc(statement) -> Dict:
             'definition': statement.object_definition,
         },
         'activity': {
-            'category': activity_meta.get('category'),
-            'subcategory': activity_meta.get('subcategory'),
-            'quiz_type': activity_meta.get('quiz_type'),
-            'language_code': activity_meta.get('subcategory') if activity_meta.get('category') == 'word' else None,
-            'character_set': activity_meta.get('subcategory') if activity_meta.get('category') == 'gana' else None,
+            'category': category,
+            'subcategory': subcategory,
+            'quiz_type': quiz_type,
+            'language_code': language_code,
+            'language_name': language_name,
+            'character_set': character_set,
         },
         'result': {
             'success': statement.result_success,

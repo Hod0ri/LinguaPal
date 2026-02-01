@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { userApi, masterApi } from '../services/api'
 import type { Language } from '../types'
-import Header from '../components/Header'
+import Layout from '../components/Layout'
 
 export default function ProfilePage() {
   const { user, profile, refreshProfile } = useAuth()
@@ -82,10 +82,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <Header />
-
-      <main className="max-w-2xl mx-auto py-8 px-4">
+    <Layout>
+      <div className="max-w-2xl mx-auto py-8 px-4">
         <div className="mb-6">
           <button
             onClick={() => navigate('/')}
@@ -244,7 +242,7 @@ export default function ProfilePage() {
             </div>
           </form>
         </div>
-      </main>
-    </div>
+      </div>
+    </Layout>
   )
 }

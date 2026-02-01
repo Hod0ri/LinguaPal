@@ -225,7 +225,7 @@ def ensure_activity_indexed_task(statement_id: str) -> bool:
     """
     try:
         from .models import XAPIStatement
-        from .constants import ActivityID, get_activity_name, XAPIActivityType
+        from .constants import ActivityID, get_activity_name, XAPIActivityType, LINGUAPAL_BASE_IRI
         from .elasticsearch import get_or_create_activity, update_activity_stats
 
         statement = XAPIStatement.objects.get(id=statement_id)
@@ -252,15 +252,29 @@ def ensure_activity_indexed_task(statement_id: str) -> bool:
             # Try to get language name from context
             language_name = statement.context_extensions.get('language_name', subcategory)
             activity_name = get_activity_name('word', subcategory, quiz_type, language_name)
+        elif category == 'flashcard':
+            # Flashcard: subcategory와 quiz_type은 이미 표시명으로 저장됨
+            language_code = statement.context_extensions.get('language_code', '')
+            base_activity_id = f"{LINGUAPAL_BASE_IRI}/activity/flashcard/{language_code}"
+            activity_name = get_activity_name('flashcard', subcategory, quiz_type)
         else:
             return True
+
+        # Build language_code based on category
+        if category == 'word':
+            lang_code = subcategory
+        elif category == 'flashcard':
+            lang_code = statement.context_extensions.get('language_code')
+        else:
+            lang_code = None
 
         activity_data = {
             'id': base_activity_id,
             'category': category,
             'subcategory': subcategory,
             'quiz_type': quiz_type,
-            'language_code': subcategory if category == 'word' else None,
+            'language_code': lang_code,
+            'language_name': statement.context_extensions.get('language_name') if category == 'flashcard' else None,
             'character_set': subcategory if category == 'gana' else None,
             'name': activity_name,
             'type': XAPIActivityType.ASSESSMENT,

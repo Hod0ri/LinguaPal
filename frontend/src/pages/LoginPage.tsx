@@ -122,9 +122,9 @@ export default function LoginPage() {
             {/* Terms */}
             <p className="mt-8 text-center text-xs text-slate-400">
               로그인 시{' '}
-              <span className="text-indigo-500 hover:underline cursor-pointer">서비스 이용약관</span>
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">서비스 이용약관</a>
               {' '}및{' '}
-              <span className="text-indigo-500 hover:underline cursor-pointer">개인정보처리방침</span>
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">개인정보처리방침</a>
               에 동의합니다.
             </p>
           </div>

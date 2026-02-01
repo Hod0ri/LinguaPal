@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { lrsGanaQuizApi } from '../services/lrsMiddleware'
-import Header from '../components/Header'
+import Layout from '../components/Layout'
 import type { GanaQuiz, CurrentQuestion, QuizProgress, QuizAnswerResponse } from '../types'
 
 type AnswerState = 'answering' | 'correct' | 'incorrect'
@@ -144,26 +144,24 @@ export default function QuizPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-        <Header />
+      <Layout>
         <div className="flex items-center justify-center h-[calc(100vh-64px)]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
         </div>
-      </div>
+      </Layout>
     )
   }
 
   if (error || !quiz || !currentQuestion) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-        <Header />
+      <Layout>
         <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4">
           <p className="text-slate-600">{error || '퀴즈를 찾을 수 없습니다.'}</p>
           <button onClick={() => navigate('/')} className="btn-primary">
             메인으로 돌아가기
           </button>
         </div>
-      </div>
+      </Layout>
     )
   }
 
@@ -171,10 +169,8 @@ export default function QuizPage() {
   const progressPercent = progress ? (progress.current / progress.total) * 100 : 0
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <Header />
-
-      <main className="max-w-2xl mx-auto py-8 px-4">
+    <Layout>
+      <div className="max-w-2xl mx-auto py-8 px-4">
         {/* Quiz Info */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
@@ -338,7 +334,7 @@ export default function QuizPage() {
             </button>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </Layout>
   )
 }

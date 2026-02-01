@@ -296,8 +296,8 @@ def get_activity_name(category: str, subcategory: str, quiz_type: str, language_
     Get the display name for an activity.
 
     Args:
-        category: 'gana' or 'word'
-        subcategory: character_set for gana, language_code for word
+        category: 'gana', 'word', or 'flashcard'
+        subcategory: character_set for gana, language_code for word, display name for flashcard
         quiz_type: The quiz type
         language_name: Language name for word quizzes (e.g., '스페인어')
         lang: Display language ('ko' or 'en')
@@ -314,5 +314,12 @@ def get_activity_name(category: str, subcategory: str, quiz_type: str, language_
         names = ACTIVITY_NAMES.get(key, {})
         template = names.get(lang, f"{{language}} {quiz_type}")
         return template.format(language=language_name or subcategory)
+    elif category == 'flashcard':
+        # Flashcard: subcategory와 quiz_type이 이미 표시명으로 저장됨
+        # subcategory: '일본어', '히라가나' 등
+        # quiz_type: '일반 학습'
+        if quiz_type:
+            return f"{subcategory} {quiz_type}"
+        return f"{subcategory} 플래시카드"
 
     return f"{category}/{subcategory}/{quiz_type}"

@@ -261,8 +261,85 @@ export interface WordQuizStats {
   strongest_words: UserWordStats[]
 }
 
+// ============= Flashcard Types =============
+import type { WordCategory as FlashcardWordCategory } from './word'
+
+export interface FlashcardWord {
+  id: number
+  word_text: string
+  word_pronunciation: string | null
+  category: FlashcardWordCategory
+  difficulty: number
+  translation: string | null
+  example: string | null
+  example_translation: string | null
+  example_highlight: number[] | null
+  example_translation_highlight: number[] | null
+}
+
+export interface FlashcardRecord {
+  id: number
+  card_index: number
+  is_known: boolean | null
+  viewed_at: string | null
+  answered_at: string | null
+  word: FlashcardWord
+}
+
+export interface FlashcardSession {
+  id: number
+  learning_language: number
+  learning_language_code: string
+  learning_language_name: string
+  category: FlashcardWordCategory | ''
+  total_cards: number
+  known_count: number
+  unknown_count: number
+  current_index: number
+  is_completed: boolean
+  progress_percentage: number
+  created_at: string
+  completed_at: string | null
+}
+
+export interface FlashcardSessionDetail extends FlashcardSession {
+  records: FlashcardRecord[]
+}
+
+export interface FlashcardStartRequest {
+  learning_language: string
+  category?: FlashcardWordCategory | ''
+  card_count?: number
+}
+
+export interface FlashcardStartResponse {
+  session: FlashcardSession
+  current_card: FlashcardRecord
+}
+
+export interface FlashcardCurrentResponse {
+  session: FlashcardSession
+  current_card: FlashcardRecord | null
+}
+
+export interface FlashcardAnswerRequest {
+  record_id: number
+  is_known: boolean
+}
+
+export interface FlashcardAnswerResponse {
+  record: FlashcardRecord
+  next_card: FlashcardRecord | null
+  session_completed: boolean
+  known_count: number
+  unknown_count: number
+}
+
 // Re-export xAPI types
 export * from './xapi'
 
 // Re-export admin types
 export * from './admin'
+
+// Re-export word types
+export * from './word'

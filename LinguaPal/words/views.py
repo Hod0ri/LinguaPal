@@ -39,7 +39,8 @@ from .models import (
     GanaQuiz, GanaQuizQuestion, UserGanaStats,
     WordCategory, GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount,
     WordQuiz, WordQuizQuestion, UserWordStats,
-    WordQuizType, WordQuizQuestionCount
+    WordQuizType, WordQuizQuestionCount,
+    FlashcardSession, FlashcardRecord
 )
 from .serializers import (
     WordSerializer,
@@ -70,6 +71,12 @@ from .serializers import (
     WordQuizAnswerResponseSerializer,
     UserWordStatsSerializer,
     WordQuizStatsSummarySerializer,
+    FlashcardSessionSerializer,
+    FlashcardSessionDetailSerializer,
+    FlashcardRecordSerializer,
+    FlashcardWordSerializer,
+    FlashcardStartRequestSerializer,
+    FlashcardAnswerRequestSerializer,
 )
 
 
@@ -1483,5 +1490,553 @@ def word_quiz_stats(request):
             'language_stats': language_stats,
             'weakest_words': UserWordStatsSerializer(weakest, many=True).data,
             'strongest_words': UserWordStatsSerializer(strongest, many=True).data
+        }
+    )
+
+
+# =============================================================================
+# Flashcard Study API
+# =============================================================================
+
+@extend_schema(
+    tags=['플래시카드 학습'],
+    summary="플래시카드 학습 시작",
+    description="새로운 플래시카드 학습 세션을 시작합니다.",
+    request=FlashcardStartRequestSerializer,
+    responses={201: FlashcardSessionDetailSerializer},
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def flashcard_start(request):
+    """플래시카드 학습 세션 시작"""
+    serializer = FlashcardStartRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return APIResponse.error(
+            message='Invalid request data',
+            data=serializer.errors,
+            error_code=ErrorCode.VALIDATION_ERROR
+        )
+
+    user = request.user
+    learning_language_id = serializer.validated_data['learning_language']
+    category = serializer.validated_data.get('category', '')
+    card_count = serializer.validated_data.get('card_count', 20)
+
+    # 사용자의 학습 언어인지 확인
+    if not hasattr(user, 'profile') or not user.profile:
+        return APIResponse.error(
+            message='Profile not found',
+            error_code=ErrorCode.NOT_FOUND
+        )
+
+    user_learning_languages = user.profile.learning_languages.values_list('id', flat=True)
+    if learning_language_id not in user_learning_languages:
+        return APIResponse.error(
+            message='Not a learning language',
+            data={'learning_language': '학습 언어가 아닙니다.'},
+            error_code=ErrorCode.VALIDATION_ERROR
+        )
+
+    # 단어 쿼리
+    words_qs = Word.objects.filter(
+        language_id=learning_language_id,
+        is_active=True
+    ).prefetch_related('translations', 'examples__translations')
+
+    if category:
+        words_qs = words_qs.filter(category=category)
+
+    # 사용자 모국어로 번역이 있는 단어만
+    native_language = user.profile.country.languages.first() if hasattr(user.profile.country, 'languages') else None
+    if native_language:
+        words_qs = words_qs.filter(translations__language=native_language).distinct()
+
+    # 랜덤 선택
+    word_ids = list(words_qs.values_list('id', flat=True))
+    if len(word_ids) < card_count:
+        card_count = len(word_ids)
+
+    if card_count == 0:
+        return APIResponse.error(
+            message='No words available',
+            data={'learning_language': '해당 언어에 학습할 단어가 없습니다.'},
+            error_code=ErrorCode.NOT_FOUND
+        )
+
+    selected_ids = random.sample(word_ids, card_count)
+    selected_words = Word.objects.filter(id__in=selected_ids).prefetch_related(
+        'translations', 'examples__translations'
+    )
+
+    # 세션 생성
+    from accounts.models import Language
+    learning_language = Language.objects.get(id=learning_language_id)
+
+    session = FlashcardSession.objects.create(
+        user=user,
+        learning_language=learning_language,
+        category=category,
+        total_cards=card_count
+    )
+
+    # 카드 레코드 생성
+    records = []
+    for idx, word in enumerate(selected_words):
+        record = FlashcardRecord.objects.create(
+            session=session,
+            word=word,
+            card_index=idx
+        )
+        records.append(record)
+
+    # xAPI Statement: INITIALIZED
+    # subcategory: 카테고리가 있으면 카테고리명, 없으면 언어명
+    from .models import WordCategory
+    subcategory_display = learning_language.name_ko
+    if category:
+        category_labels = dict(WordCategory.choices)
+        subcategory_display = category_labels.get(category, category)
+
+    queue_statement_task({
+        'actor_user_id': user.id,
+        'verb': 'initialized',
+        'object_type': 'flashcard',
+        'object_id': f'flashcard/session/{session.id}',
+        'context': {
+            'category': 'flashcard',
+            'subcategory': subcategory_display,
+            'quiz_type': '일반 학습',
+            'session_id': session.id,
+            'total_cards': card_count,
+            'language_code': learning_language.code,
+            'language_name': learning_language.name_ko,
+        }
+    })
+
+    session.refresh_from_db()
+    first_record = records[0] if records else None
+    serializer_context = {'native_language_id': native_language.id if native_language else None}
+    return APIResponse.success(
+        message='Flashcard session started',
+        data={
+            'session': FlashcardSessionSerializer(session).data,
+            'current_card': FlashcardRecordSerializer(first_record, context=serializer_context).data if first_record else None
+        },
+        status_code=status.HTTP_201_CREATED
+    )
+
+
+@extend_schema(
+    tags=['플래시카드 학습'],
+    summary="현재 카드 조회",
+    description="현재 학습 중인 카드 정보를 조회합니다.",
+    responses={200: FlashcardRecordSerializer},
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def flashcard_current(request, session_id):
+    """현재 플래시카드 조회"""
+    session = get_object_or_404(FlashcardSession, id=session_id, user=request.user)
+
+    if session.is_completed:
+        return APIResponse.error(
+            message='Session already completed',
+            error_code=ErrorCode.VALIDATION_ERROR
+        )
+
+    # 현재 인덱스의 레코드
+    record = session.records.select_related('word').prefetch_related(
+        'word__translations', 'word__examples__translations'
+    ).filter(card_index=session.current_index).first()
+    if not record:
+        return APIResponse.error(
+            message='No more cards',
+            error_code=ErrorCode.NOT_FOUND
+        )
+
+    # 사용자 모국어 조회
+    user = request.user
+    native_language = user.profile.country.languages.first() if hasattr(user, 'profile') and hasattr(user.profile.country, 'languages') else None
+
+    # 조회 시간 기록
+    if not record.viewed_at:
+        record.viewed_at = timezone.now()
+        record.save()
+
+        # xAPI Statement: EXPERIENCED (카드 조회)
+        # subcategory: 카테고리가 있으면 카테고리명, 없으면 언어명
+        from .models import WordCategory
+        subcategory_display = session.learning_language.name_ko
+        if session.category:
+            category_labels = dict(WordCategory.choices)
+            subcategory_display = category_labels.get(session.category, session.category)
+
+        queue_statement_task({
+            'actor_user_id': request.user.id,
+            'verb': 'experienced',
+            'object_type': 'flashcard',
+            'object_id': f'flashcard/session/{session.id}/card/{record.id}',
+            'context': {
+                'category': 'flashcard',
+                'subcategory': subcategory_display,
+                'quiz_type': '일반 학습',
+                'session_id': session.id,
+                'card_index': record.card_index,
+                'word_id': record.word.id,
+                'word_text': record.word.text,
+                'language_code': session.learning_language.code,
+                'language_name': session.learning_language.name_ko,
+            }
+        })
+
+    serializer_context = {'native_language_id': native_language.id if native_language else None}
+    return APIResponse.success(
+        message='Current card',
+        data={
+            'session': FlashcardSessionSerializer(session).data,
+            'current_card': FlashcardRecordSerializer(record, context=serializer_context).data,
+        }
+    )
+
+
+@extend_schema(
+    tags=['플래시카드 학습'],
+    summary="카드 응답",
+    description="플래시카드에 대한 응답(알아요/몰라요)을 제출합니다.",
+    request=FlashcardAnswerRequestSerializer,
+    responses={200: FlashcardSessionSerializer},
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def flashcard_answer(request, session_id):
+    """플래시카드 응답 제출"""
+    session = get_object_or_404(FlashcardSession, id=session_id, user=request.user)
+
+    if session.is_completed:
+        return APIResponse.error(
+            message='Session already completed',
+            error_code=ErrorCode.VALIDATION_ERROR
+        )
+
+    serializer = FlashcardAnswerRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return APIResponse.error(
+            message='Invalid request data',
+            data=serializer.errors,
+            error_code=ErrorCode.VALIDATION_ERROR
+        )
+
+    record_id = serializer.validated_data['record_id']
+    is_known = serializer.validated_data['is_known']
+
+    # 사용자 모국어 조회
+    user = request.user
+    native_language = user.profile.country.languages.first() if hasattr(user, 'profile') and hasattr(user.profile.country, 'languages') else None
+
+    record = get_object_or_404(
+        FlashcardRecord.objects.select_related('word').prefetch_related('word__translations', 'word__examples__translations'),
+        id=record_id,
+        session=session
+    )
+
+    if record.is_known is not None:
+        return APIResponse.error(
+            message='Already answered',
+            error_code=ErrorCode.VALIDATION_ERROR
+        )
+
+    # 응답 기록
+    record.is_known = is_known
+    record.answered_at = timezone.now()
+    record.save()
+
+    # 세션 업데이트
+    if is_known:
+        session.known_count += 1
+    else:
+        session.unknown_count += 1
+    session.current_index += 1
+
+    # xAPI Statement: ANSWERED
+    # subcategory: 카테고리가 있으면 카테고리명, 없으면 언어명
+    from .models import WordCategory
+    subcategory_display = session.learning_language.name_ko
+    if session.category:
+        category_labels = dict(WordCategory.choices)
+        subcategory_display = category_labels.get(session.category, session.category)
+
+    queue_statement_task({
+        'actor_user_id': request.user.id,
+        'verb': 'answered',
+        'object_type': 'flashcard',
+        'object_id': f'flashcard/session/{session.id}/card/{record.id}',
+        'result': {
+            'success': is_known,
+            'response': 'known' if is_known else 'unknown',
+        },
+        'context': {
+            'category': 'flashcard',
+            'subcategory': subcategory_display,
+            'quiz_type': '일반 학습',
+            'session_id': session.id,
+            'card_index': record.card_index,
+            'word_id': record.word.id,
+            'word_text': record.word.text,
+            'language_code': session.learning_language.code,
+            'language_name': session.learning_language.name_ko,
+        }
+    })
+
+    # 완료 체크
+    next_card = None
+    if session.current_index >= session.total_cards:
+        session.is_completed = True
+        session.completed_at = timezone.now()
+
+        # xAPI Statement: COMPLETED
+        known_rate = (session.known_count / session.total_cards) * 100 if session.total_cards > 0 else 0
+        queue_statement_task({
+            'actor_user_id': request.user.id,
+            'verb': 'completed',
+            'object_type': 'flashcard',
+            'object_id': f'flashcard/session/{session.id}',
+            'result': {
+                'score_scaled': known_rate / 100,
+                'score_raw': session.known_count,
+                'score_max': session.total_cards,
+                'completion': True,
+            },
+            'context': {
+                'category': 'flashcard',
+                'subcategory': subcategory_display,
+                'quiz_type': '일반 학습',
+                'session_id': session.id,
+                'total_cards': session.total_cards,
+                'known_count': session.known_count,
+                'unknown_count': session.unknown_count,
+                'language_code': session.learning_language.code,
+                'language_name': session.learning_language.name_ko,
+            }
+        })
+    else:
+        # 다음 카드 정보
+        next_record = session.records.select_related('word').prefetch_related(
+            'word__translations', 'word__examples__translations'
+        ).filter(card_index=session.current_index).first()
+        if next_record:
+            serializer_context = {'native_language_id': native_language.id if native_language else None}
+            next_card = FlashcardRecordSerializer(next_record, context=serializer_context).data
+
+    session.save()
+
+    serializer_context = {'native_language_id': native_language.id if native_language else None}
+    return APIResponse.success(
+        message='Answer recorded',
+        data={
+            'record': FlashcardRecordSerializer(record, context=serializer_context).data,
+            'next_card': next_card,
+            'session_completed': session.is_completed,
+            'known_count': session.known_count,
+            'unknown_count': session.unknown_count,
+        }
+    )
+
+
+@extend_schema(
+    tags=['플래시카드 학습'],
+    summary="세션 상세 조회",
+    description="플래시카드 학습 세션의 상세 정보를 조회합니다.",
+    responses={200: FlashcardSessionDetailSerializer},
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def flashcard_detail(request, session_id):
+    """플래시카드 세션 상세 조회"""
+    session = get_object_or_404(
+        FlashcardSession.objects.prefetch_related('records__word__translations', 'records__word__examples'),
+        id=session_id,
+        user=request.user
+    )
+
+    return APIResponse.success(
+        message='Flashcard session detail',
+        data=FlashcardSessionDetailSerializer(session).data
+    )
+
+
+@extend_schema(
+    tags=['플래시카드 학습'],
+    summary="학습 중단",
+    description="진행 중인 플래시카드 학습을 중단합니다.",
+    responses={200: FlashcardSessionSerializer},
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def flashcard_abandon(request, session_id):
+    """플래시카드 세션 중단 (abandoned)"""
+    session = get_object_or_404(FlashcardSession, id=session_id, user=request.user)
+
+    # 이미 완료된 세션은 중단 불가
+    if session.is_completed:
+        return APIResponse.error(
+            message='Session already completed',
+            error_code=ErrorCode.VALIDATION_ERROR
+        )
+
+    # xAPI Statement: ABANDONED
+    from .models import WordCategory
+    subcategory_display = session.learning_language.name_ko
+    if session.category:
+        category_labels = dict(WordCategory.choices)
+        subcategory_display = category_labels.get(session.category, session.category)
+
+    # 현재까지의 진행률 계산
+    answered_count = session.known_count + session.unknown_count
+    progress_rate = (answered_count / session.total_cards) if session.total_cards > 0 else 0
+
+    queue_statement_task({
+        'actor_user_id': request.user.id,
+        'verb': 'abandoned',
+        'object_type': 'flashcard',
+        'object_id': f'flashcard/session/{session.id}',
+        'result': {
+            'score_scaled': progress_rate,
+            'score_raw': answered_count,
+            'score_max': session.total_cards,
+            'completion': False,
+        },
+        'context': {
+            'category': 'flashcard',
+            'subcategory': subcategory_display,
+            'quiz_type': '일반 학습',
+            'session_id': session.id,
+            'total_cards': session.total_cards,
+            'known_count': session.known_count,
+            'unknown_count': session.unknown_count,
+            'progress_percentage': round(progress_rate * 100, 1),
+            'language_code': session.learning_language.code,
+            'language_name': session.learning_language.name_ko,
+        }
+    })
+
+    return APIResponse.success(
+        message='Session abandoned',
+        data=FlashcardSessionSerializer(session).data
+    )
+
+
+@extend_schema(
+    tags=['플래시카드 학습'],
+    summary="학습 히스토리",
+    description="사용자의 플래시카드 학습 히스토리를 조회합니다.",
+    parameters=[
+        OpenApiParameter(name='learning_language', description='학습 언어 ID', required=False, type=int),
+        OpenApiParameter(name='is_completed', description='완료 여부', required=False, type=bool),
+        OpenApiParameter(name='limit', description='조회 수 (기본 20)', required=False, type=int),
+    ],
+    responses={200: FlashcardSessionSerializer(many=True)},
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def flashcard_history(request):
+    """플래시카드 학습 히스토리"""
+    sessions = FlashcardSession.objects.filter(user=request.user)
+
+    learning_language = request.query_params.get('learning_language')
+    if learning_language:
+        sessions = sessions.filter(learning_language_id=learning_language)
+
+    is_completed = request.query_params.get('is_completed')
+    if is_completed is not None:
+        sessions = sessions.filter(is_completed=is_completed.lower() == 'true')
+
+    limit = int(request.query_params.get('limit', 20))
+    sessions = sessions[:limit]
+
+    return APIResponse.success(
+        message='Flashcard history',
+        data={
+            'sessions': FlashcardSessionSerializer(sessions, many=True).data,
+            'total_count': sessions.count()
+        }
+    )
+
+
+# =============================================================================
+# 단어 퀴즈 초기화 API
+# =============================================================================
+
+@extend_schema(
+    tags=['단어 퀴즈'],
+    summary="언어별 단어 퀴즈 기록 초기화",
+    description="특정 언어의 단어 퀴즈 기록을 모두 삭제합니다.",
+    request={
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'language_code': {
+                    'type': 'string',
+                    'description': '초기화할 언어 코드 (예: ja, es, en)',
+                }
+            },
+            'required': ['language_code']
+        }
+    },
+    responses={
+        200: {
+            'description': '초기화 성공',
+            'content': {
+                'application/json': {
+                    'example': {
+                        'success': True,
+                        'message': 'Word quiz stats reset successfully',
+                        'data': {'deleted_quizzes': 10}
+                    }
+                }
+            }
+        }
+    },
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def word_quiz_reset(request):
+    """특정 언어의 퀴즈 기록 초기화 (일본어인 경우 가나 퀴즈도 함께 삭제)"""
+    from .models import WordQuiz, GanaQuiz, Language
+
+    language_code = request.data.get('language_code')
+    if not language_code:
+        return APIResponse.error(
+            message='language_code is required',
+            error_code=ErrorCode.VALIDATION_ERROR
+        )
+
+    # 언어 확인
+    try:
+        language = Language.objects.get(code=language_code)
+    except Language.DoesNotExist:
+        return APIResponse.error(
+            message=f'Language not found: {language_code}',
+            error_code=ErrorCode.NOT_FOUND
+        )
+
+    # 해당 사용자의 해당 언어 단어 퀴즈 삭제
+    word_deleted_count, _ = WordQuiz.objects.filter(
+        user=request.user,
+        learning_language=language
+    ).delete()
+
+    # 일본어인 경우 가나 퀴즈도 삭제
+    gana_deleted_count = 0
+    if language_code == 'ja':
+        gana_deleted_count, _ = GanaQuiz.objects.filter(
+            user=request.user
+        ).delete()
+
+    return APIResponse.success(
+        message='Quiz stats reset successfully',
+        data={
+            'deleted_word_quizzes': word_deleted_count,
+            'deleted_gana_quizzes': gana_deleted_count,
+            'total_deleted': word_deleted_count + gana_deleted_count
         }
     )

@@ -169,6 +169,28 @@ export const wordQuizApi = {
 
   getQuizStats: (params?: { learning_language?: string }) =>
     api.get<ApiResponse<WordQuizStats>>('/quiz/word/stats', { params }),
+
+  resetStats: (languageCode: string) =>
+    api.post<ApiResponse<{ deleted_quizzes: number }>>('/quiz/word/reset', { language_code: languageCode }),
+}
+
+// Policy API (이용약관, 개인정보처리방침)
+export interface PolicyDocument {
+  type: 'terms' | 'privacy'
+  content: string
+  content_html: string
+  updated_at: string
+}
+
+export const policyApi = {
+  getTermsOfService: () =>
+    api.get<ApiResponse<PolicyDocument>>('/policies/terms'),
+
+  getPrivacyPolicy: () =>
+    api.get<ApiResponse<PolicyDocument>>('/policies/privacy'),
+
+  updatePolicy: (type: 'terms' | 'privacy', content: string) =>
+    api.put<ApiResponse<PolicyDocument>>(`/policies/${type}`, { content }),
 }
 
 export default api

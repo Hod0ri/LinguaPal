@@ -87,6 +87,12 @@ def _get_display_name(category: str, subcategory: str, quiz_type: str = None) ->
             }.get(quiz_type, quiz_type)
             return f"{lang_name} 단어 퀴즈 ({quiz_name})"
         return f"{lang_name} 단어 퀴즈"
+    elif category == 'flashcard':
+        # 플래시카드: subcategory는 이미 표시명 (일본어, 히라가나 등)
+        # quiz_type은 "일반 학습"
+        if quiz_type:
+            return f"{subcategory} {quiz_type}"
+        return f"{subcategory} 플래시카드"
     return f"{category}/{subcategory}"
 
 

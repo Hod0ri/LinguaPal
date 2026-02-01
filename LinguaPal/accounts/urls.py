@@ -8,6 +8,9 @@ from .views import (
     get_profile,
     create_profile,
     update_profile,
+    get_terms_of_service,
+    get_privacy_policy,
+    update_policy,
 )
 
 
@@ -27,4 +30,9 @@ urlpatterns = [
     # Master Data APIs (/api/v1/master/*)
     path('master/languages', language_list, name='language_list'),
     path('master/countries', country_list, name='country_list'),
+
+    # Policy APIs (/api/v1/policies/*)
+    path('policies/terms', get_terms_of_service, name='terms_of_service'),
+    path('policies/privacy', get_privacy_policy, name='privacy_policy'),
+    path('policies/<str:policy_type>', update_policy, name='update_policy'),
 ]

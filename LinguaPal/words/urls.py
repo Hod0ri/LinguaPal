@@ -34,6 +34,14 @@ from .views import (
     word_quiz_current_question,
     word_quiz_history,
     word_quiz_stats,
+    word_quiz_reset,
+    # Flashcard
+    flashcard_start,
+    flashcard_current,
+    flashcard_answer,
+    flashcard_detail,
+    flashcard_history,
+    flashcard_abandon,
 )
 
 app_name = 'words'
@@ -86,7 +94,16 @@ urlpatterns = [
     path('quiz/word/start', word_quiz_start, name='word_quiz_start'),
     path('quiz/word/history', word_quiz_history, name='word_quiz_history'),
     path('quiz/word/stats', word_quiz_stats, name='word_quiz_stats'),
+    path('quiz/word/reset', word_quiz_reset, name='word_quiz_reset'),
     path('quiz/word/<int:quiz_id>', word_quiz_detail, name='word_quiz_detail'),
     path('quiz/word/<int:quiz_id>/answer', word_quiz_answer, name='word_quiz_answer'),
     path('quiz/word/<int:quiz_id>/current', word_quiz_current_question, name='word_quiz_current_question'),
+
+    # Flashcard API
+    path('flashcard/start', flashcard_start, name='flashcard_start'),
+    path('flashcard/history', flashcard_history, name='flashcard_history'),
+    path('flashcard/<int:session_id>', flashcard_detail, name='flashcard_detail'),
+    path('flashcard/<int:session_id>/current', flashcard_current, name='flashcard_current'),
+    path('flashcard/<int:session_id>/answer', flashcard_answer, name='flashcard_answer'),
+    path('flashcard/<int:session_id>/abandon', flashcard_abandon, name='flashcard_abandon'),
 ]
