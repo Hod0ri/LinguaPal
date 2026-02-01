@@ -154,6 +154,8 @@ function ActivityItem({ activity }: { activity: DashboardRealtime['recent_activi
     completed: 'bg-emerald-100 text-emerald-600',
     passed: 'bg-green-100 text-green-600',
     failed: 'bg-rose-100 text-rose-600',
+    abandoned: 'bg-amber-100 text-amber-600',
+    terminated: 'bg-slate-100 text-slate-500',
   }
 
   const verbLabels: Record<string, string> = {
@@ -162,15 +164,18 @@ function ActivityItem({ activity }: { activity: DashboardRealtime['recent_activi
     completed: '완료',
     passed: '합격',
     failed: '불합격',
+    abandoned: '중단',
+    terminated: '종료',
   }
 
   const verbDisplay = activity.verb.display || activity.verb.id.split('/').pop() || 'unknown'
   const colorClass = verbColors[verbDisplay] || 'bg-slate-100 text-slate-600'
   const verbLabel = verbLabels[verbDisplay] || verbDisplay
 
-  // Use display_name if available, fallback to name
-  const actorName = activity.actor.display_name || activity.actor.name || 'Unknown'
-  const activityName = activity.activity?.display_name || activity.object.id.split('/').slice(-3).join('/')
+  // 프로필 닉네임 우선 사용 (ES: actor.display_name, DB: actor_display_name)
+  const actorName = activity.actor.display_name || activity.actor_display_name || activity.actor.name || 'Unknown'
+  // 활동 표시명 (ES: activity.display_name, DB: activity_display_name)
+  const activityName = activity.activity?.display_name || activity.activity_display_name || activity.object.id.split('/').slice(-3).join('/')
 
   return (
     <div className="flex items-center gap-3 py-3 border-b border-slate-100 last:border-0">
@@ -332,8 +337,13 @@ const getLocalizedSubcategory = (sub: string) => {
     'ja': '일본어',
     'en': '영어',
     'ko': '한국어',
+    'es': '스페인어',
+    'zh': '중국어',
+    'fr': '프랑스어',
+    'de': '독일어',
     'all': '전체'
   }
+  // 이미 한글이면 그대로 반환 (flashcard에서 직접 언어명/카테고리명 저장)
   return map[sub] || sub;
 }
 
@@ -345,9 +355,20 @@ const getLocalizedQuizType = (type?: string) => {
     'romaji_to_gana_input': '로마자 -> 가나 (입력)',
     'word_to_native': '단어 -> 모국어 (선택)',
     'native_to_word_select': '모국어 -> 단어 (선택)',
-    'native_to_word_input': '모국어 -> 단어 (입력)'
+    'native_to_word_input': '모국어 -> 단어 (입력)',
+    'flashcard': '플래시카드'
   }
+  // 이미 한글이면 그대로 반환 (flashcard에서 직접 '일반 학습' 저장)
   return map[type] || type;
+}
+
+const getLocalizedCategory = (cat: string) => {
+  const map: Record<string, string> = {
+    'gana': '가나',
+    'word': '단어',
+    'flashcard': '플래시카드'
+  }
+  return map[cat] || cat;
 }
 
 export default function AdminDashboardPage() {
@@ -482,7 +503,25 @@ export default function AdminDashboardPage() {
               <div className="h-6 w-px bg-slate-200" />
               <h1 className="text-lg font-semibold text-slate-800">관리자 대시보드</h1>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
+              <Link
+                to="/admin/words"
+                className="text-sm text-slate-500 hover:text-indigo-600 flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                단어 관리
+              </Link>
+              <Link
+                to="/admin/policies"
+                className="text-sm text-slate-500 hover:text-indigo-600 flex items-center gap-1"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                정책 관리
+              </Link>
               <span className="text-sm text-slate-500">{user?.name}</span>
               <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded">
                 {user?.role}
@@ -713,11 +752,14 @@ export default function AdminDashboardPage() {
                           {overview.activity_breakdown.map((activity, index) => (
                             <tr key={index} className="border-b border-slate-50 hover:bg-slate-50">
                               <td className="py-2 px-3">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${activity.category === 'gana'
-                                  ? 'bg-indigo-100 text-indigo-700'
-                                  : 'bg-purple-100 text-purple-700'
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  activity.category === 'gana'
+                                    ? 'bg-indigo-100 text-indigo-700'
+                                    : activity.category === 'flashcard'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-purple-100 text-purple-700'
                                   }`}>
-                                  {activity.category === 'gana' ? '가나' : '단어'}
+                                  {getLocalizedCategory(activity.category)}
                                 </span>
                               </td>
                               <td className="py-2 px-3 text-slate-700">{getLocalizedSubcategory(activity.subcategory)}</td>

@@ -388,7 +388,11 @@ export const lrsWordQuizApi = {
   getCurrentQuestion: wordQuizApi.getCurrentQuestion,
   getQuizHistory: wordQuizApi.getQuizHistory,
   getQuizStats: wordQuizApi.getQuizStats,
+  resetStats: wordQuizApi.resetStats,
 }
+
+// Alias for backward compatibility
+export { lrsGanaQuizApi as lrsQuizApi }
 
 export default {
   ganaQuiz: lrsGanaQuizApi,

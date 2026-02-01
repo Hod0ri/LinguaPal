@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { lrsGanaQuizApi } from '../services/lrsMiddleware'
-import Header from '../components/Header'
+import Layout from '../components/Layout'
 import QuizSettingsModal from '../components/QuizSettingsModal'
 import type { QuizStats, GanaQuizListItem } from '../types'
 
@@ -38,20 +38,17 @@ export default function QuizDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-        <Header />
+      <Layout>
         <div className="flex items-center justify-center h-[calc(100vh-64px)]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
         </div>
-      </div>
+      </Layout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <Header />
-
-      <main className="max-w-4xl mx-auto py-8 px-4">
+    <Layout>
+      <div className="max-w-4xl mx-auto py-8 px-4">
         {/* Page Title */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -274,9 +271,9 @@ export default function QuizDashboardPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       <QuizSettingsModal isOpen={showQuizModal} onClose={() => setShowQuizModal(false)} />
-    </div>
+    </Layout>
   )
 }

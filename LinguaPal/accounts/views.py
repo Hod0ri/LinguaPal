@@ -425,3 +425,161 @@ def update_profile(request):
         errors=serializer.errors,
         message='Validation failed'
     )
+
+
+# =============================================================================
+# 정책 문서 API
+# =============================================================================
+
+import os
+import markdown
+
+
+class PolicyDocumentSerializer(serializers.Serializer):
+    type = serializers.ChoiceField(choices=['terms', 'privacy'])
+    content = serializers.CharField()
+    content_html = serializers.CharField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+
+
+def _get_policy_path(policy_type: str) -> str:
+    """Get file path for policy document."""
+    policy_files = {
+        'terms': 'terms_of_service.md',
+        'privacy': 'privacy_policy.md',
+    }
+    filename = policy_files.get(policy_type)
+    if not filename:
+        return None
+    return os.path.join(settings.BASE_DIR, 'policies', filename)
+
+
+def _read_policy(policy_type: str) -> dict:
+    """Read policy document from file."""
+    filepath = _get_policy_path(policy_type)
+    if not filepath or not os.path.exists(filepath):
+        return None
+
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Convert to HTML
+    md = markdown.Markdown(extensions=['tables', 'fenced_code'])
+    content_html = md.convert(content)
+
+    # Get file modification time
+    mtime = os.path.getmtime(filepath)
+    from datetime import datetime
+    updated_at = datetime.fromtimestamp(mtime)
+
+    return {
+        'type': policy_type,
+        'content': content,
+        'content_html': content_html,
+        'updated_at': updated_at,
+    }
+
+
+@extend_schema(
+    tags=['정책'],
+    summary="이용약관 조회",
+    description="서비스 이용약관을 조회합니다. 인증이 필요하지 않습니다.",
+    responses={200: PolicyDocumentSerializer},
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_terms_of_service(request):
+    """이용약관 조회"""
+    policy = _read_policy('terms')
+    if not policy:
+        return APIResponse.error(
+            message='Terms of service not found',
+            error_code=ErrorCode.RESOURCE_NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    return APIResponse.success(
+        message='Terms of service retrieved',
+        data=policy
+    )
+
+
+@extend_schema(
+    tags=['정책'],
+    summary="개인정보처리방침 조회",
+    description="개인정보처리방침을 조회합니다. 인증이 필요하지 않습니다.",
+    responses={200: PolicyDocumentSerializer},
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_privacy_policy(request):
+    """개인정보처리방침 조회"""
+    policy = _read_policy('privacy')
+    if not policy:
+        return APIResponse.error(
+            message='Privacy policy not found',
+            error_code=ErrorCode.RESOURCE_NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    return APIResponse.success(
+        message='Privacy policy retrieved',
+        data=policy
+    )
+
+
+class PolicyUpdateSerializer(serializers.Serializer):
+    content = serializers.CharField()
+
+
+@extend_schema(
+    tags=['정책'],
+    summary="정책 문서 수정 (관리자)",
+    description="이용약관 또는 개인정보처리방침을 수정합니다. 관리자 권한이 필요합니다.",
+    request=PolicyUpdateSerializer,
+    responses={
+        200: PolicyDocumentSerializer,
+        403: ErrorResponseSerializer,
+        404: ErrorResponseSerializer,
+    },
+)
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def update_policy(request, policy_type):
+    """정책 문서 수정 (관리자 전용)"""
+    # Check admin permission
+    if not request.user.is_staff and not request.user.is_superuser:
+        return APIResponse.error(
+            message='Admin permission required',
+            error_code=ErrorCode.PERMISSION_DENIED,
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
+    if policy_type not in ['terms', 'privacy']:
+        return APIResponse.error(
+            message='Invalid policy type. Use "terms" or "privacy".',
+            error_code=ErrorCode.INVALID_INPUT,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    serializer = PolicyUpdateSerializer(data=request.data)
+    if not serializer.is_valid():
+        return APIResponse.validation_error(
+            errors=serializer.errors,
+            message='Validation failed'
+        )
+
+    content = serializer.validated_data['content']
+    filepath = _get_policy_path(policy_type)
+
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+    # Write content to file
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+    # Return updated policy
+    policy = _read_policy(policy_type)
+    return APIResponse.success(
+        message=f'Policy document updated successfully',
+        data=policy
+    )

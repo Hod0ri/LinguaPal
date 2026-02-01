@@ -194,6 +194,12 @@ class ExampleTranslation(models.Model):
     translated_sentence = models.TextField(
         verbose_name='번역된 예문'
     )
+    highlight_indices = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='하이라이트 인덱스',
+        help_text='번역에서 단어 뜻에 해당하는 부분의 [시작, 끝] 인덱스'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
 
@@ -640,3 +646,87 @@ class UserWordStats(models.Model):
         if self.total_attempts == 0:
             return 0
         return round((self.correct_count / self.total_attempts) * 100, 1)
+
+
+# =============================================================================
+# Flashcard Study Models
+# =============================================================================
+
+class FlashcardSession(models.Model):
+    """플래시카드 학습 세션"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='flashcard_sessions',
+        verbose_name='사용자'
+    )
+    learning_language = models.ForeignKey(
+        Language,
+        on_delete=models.CASCADE,
+        related_name='flashcard_sessions',
+        verbose_name='학습 언어'
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=WordCategory.choices,
+        blank=True,
+        verbose_name='카테고리',
+        help_text='빈값이면 전체'
+    )
+    total_cards = models.PositiveIntegerField(default=0, verbose_name='전체 카드 수')
+    known_count = models.PositiveIntegerField(default=0, verbose_name='알아요 수')
+    unknown_count = models.PositiveIntegerField(default=0, verbose_name='몰라요 수')
+    current_index = models.PositiveIntegerField(default=0, verbose_name='현재 카드 인덱스')
+    is_completed = models.BooleanField(default=False, verbose_name='완료 여부')
+    started_at = models.DateTimeField(auto_now_add=True, verbose_name='시작 시간')
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='완료 시간')
+
+    class Meta:
+        verbose_name = '플래시카드 세션'
+        verbose_name_plural = '플래시카드 세션 목록'
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f'{self.user.email} - {self.learning_language.code} ({self.known_count}/{self.total_cards})'
+
+    @property
+    def progress_percentage(self):
+        """진행률"""
+        if self.total_cards == 0:
+            return 0
+        return round(((self.known_count + self.unknown_count) / self.total_cards) * 100, 1)
+
+
+class FlashcardRecord(models.Model):
+    """플래시카드 학습 기록 (카드별)"""
+    session = models.ForeignKey(
+        FlashcardSession,
+        on_delete=models.CASCADE,
+        related_name='records',
+        verbose_name='세션'
+    )
+    word = models.ForeignKey(
+        Word,
+        on_delete=models.CASCADE,
+        related_name='flashcard_records',
+        verbose_name='단어'
+    )
+    card_index = models.PositiveIntegerField(verbose_name='카드 순서')
+    is_known = models.BooleanField(null=True, verbose_name='알아요 여부')
+    viewed_at = models.DateTimeField(null=True, blank=True, verbose_name='조회 시간')
+    answered_at = models.DateTimeField(null=True, blank=True, verbose_name='응답 시간')
+
+    class Meta:
+        verbose_name = '플래시카드 기록'
+        verbose_name_plural = '플래시카드 기록 목록'
+        ordering = ['card_index']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'word'],
+                name='unique_session_word'
+            )
+        ]
+
+    def __str__(self):
+        status = '알아요' if self.is_known else ('몰라요' if self.is_known is False else '미응답')
+        return f'{self.word.text} - {status}'

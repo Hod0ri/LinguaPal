@@ -93,6 +93,7 @@ export interface RecentActivity {
     user_id: number
     mbox: string
     name: string
+    display_name?: string  // 프로필 닉네임 (ES 소스)
   }
   verb: {
     id: string
@@ -102,11 +103,19 @@ export interface RecentActivity {
     type: string
     id: string
   }
+  activity?: {
+    display_name?: string  // 활동 표시명
+    category?: string
+    subcategory?: string
+    quiz_type?: string
+  }
   result?: {
     success?: boolean
     score_scaled?: number
   }
   timestamp: string
+  actor_display_name?: string  // 프로필 닉네임 (DB 소스)
+  activity_display_name?: string  // 활동 표시명 (DB 소스)
 }
 
 export interface DashboardRealtime {

@@ -5,7 +5,8 @@ from .models import (
     GanaQuiz, GanaQuizQuestion, UserGanaStats,
     GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount,
     WordQuiz, WordQuizQuestion, UserWordStats,
-    WordQuizType, WordQuizQuestionCount
+    WordQuizType, WordQuizQuestionCount,
+    FlashcardSession, FlashcardRecord
 )
 from accounts.models import Language
 
@@ -509,3 +510,134 @@ class WordQuizStatsSummarySerializer(serializers.Serializer):
     language_stats = serializers.DictField()
     weakest_words = UserWordStatsSerializer(many=True)
     strongest_words = UserWordStatsSerializer(many=True)
+
+
+# =============================================================================
+# Flashcard Serializers
+# =============================================================================
+
+class FlashcardWordSerializer(serializers.Serializer):
+    """플래시카드용 단어 Serializer (프론트엔드 형식에 맞춤)"""
+    id = serializers.IntegerField()
+    word_text = serializers.CharField(source='text')
+    word_pronunciation = serializers.CharField(source='pronunciation', allow_null=True)
+    category = serializers.CharField()
+    difficulty = serializers.IntegerField(source='difficulty_level')
+    translation = serializers.SerializerMethodField()
+    example = serializers.SerializerMethodField()
+    example_translation = serializers.SerializerMethodField()
+    example_highlight = serializers.SerializerMethodField()
+    example_translation_highlight = serializers.SerializerMethodField()
+
+    def get_translation(self, obj):
+        """사용자 모국어로 된 번역 반환"""
+        native_language_id = self.context.get('native_language_id')
+        if native_language_id:
+            trans = obj.translations.filter(language_id=native_language_id).first()
+            if trans:
+                return trans.translated_text
+        # 첫 번째 번역이라도 반환
+        first_trans = obj.translations.first()
+        return first_trans.translated_text if first_trans else None
+
+    def get_example(self, obj):
+        """첫 번째 예문 반환"""
+        example = obj.examples.first()
+        return example.sentence if example else None
+
+    def get_example_translation(self, obj):
+        """예문의 번역 반환"""
+        native_language_id = self.context.get('native_language_id')
+        example = obj.examples.first()
+        if example and native_language_id:
+            trans = example.translations.filter(language_id=native_language_id).first()
+            if trans:
+                return trans.translated_sentence
+        return None
+
+    def get_example_highlight(self, obj):
+        """예문의 하이라이트 인덱스 반환"""
+        example = obj.examples.first()
+        return example.highlight_indices if example else None
+
+    def get_example_translation_highlight(self, obj):
+        """예문 번역의 하이라이트 인덱스 반환"""
+        native_language_id = self.context.get('native_language_id')
+        example = obj.examples.first()
+        if example and native_language_id:
+            trans = example.translations.filter(language_id=native_language_id).first()
+            if trans:
+                return trans.highlight_indices
+        return None
+
+
+class FlashcardRecordSerializer(serializers.ModelSerializer):
+    """플래시카드 기록 Serializer"""
+    word = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FlashcardRecord
+        fields = ['id', 'word', 'card_index', 'is_known', 'viewed_at', 'answered_at']
+
+    def get_word(self, obj):
+        """단어 정보를 사용자 컨텍스트와 함께 직렬화"""
+        return FlashcardWordSerializer(
+            obj.word,
+            context=self.context
+        ).data
+
+
+class FlashcardSessionSerializer(serializers.ModelSerializer):
+    """플래시카드 세션 Serializer"""
+    learning_language_code = serializers.CharField(source='learning_language.code', read_only=True)
+    learning_language_name = serializers.CharField(source='learning_language.name_ko', read_only=True)
+    progress_percentage = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = FlashcardSession
+        fields = [
+            'id', 'learning_language', 'learning_language_code', 'learning_language_name',
+            'category', 'total_cards', 'known_count', 'unknown_count',
+            'current_index', 'is_completed', 'progress_percentage',
+            'started_at', 'completed_at'
+        ]
+
+
+class FlashcardSessionDetailSerializer(FlashcardSessionSerializer):
+    """플래시카드 세션 상세 Serializer"""
+    records = FlashcardRecordSerializer(many=True, read_only=True)
+
+    class Meta(FlashcardSessionSerializer.Meta):
+        fields = FlashcardSessionSerializer.Meta.fields + ['records']
+
+
+class FlashcardStartRequestSerializer(serializers.Serializer):
+    """플래시카드 시작 요청 Serializer"""
+    learning_language = serializers.CharField(help_text='학습할 언어 코드 (예: ja, ko, en)')
+    category = serializers.ChoiceField(
+        choices=[('', '전체')] + list(WordCategory.choices),
+        required=False,
+        allow_blank=True,
+        help_text='카테고리 (빈값이면 전체)'
+    )
+    card_count = serializers.IntegerField(
+        min_value=5,
+        max_value=100,
+        default=20,
+        help_text='카드 수 (5-100)'
+    )
+
+    def validate_learning_language(self, value):
+        """언어 코드를 언어 ID로 변환"""
+        from accounts.models import Language
+        try:
+            language = Language.objects.get(code=value)
+            return language.id
+        except Language.DoesNotExist:
+            raise serializers.ValidationError('존재하지 않는 언어 코드입니다.')
+
+
+class FlashcardAnswerRequestSerializer(serializers.Serializer):
+    """플래시카드 응답 요청 Serializer"""
+    record_id = serializers.IntegerField(help_text='플래시카드 기록 ID')
+    is_known = serializers.BooleanField(help_text='알아요 여부')

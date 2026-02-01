@@ -207,6 +207,13 @@ class StatementBuilder:
         # Set result if present
         result = data.get('result', {})
         if result:
+            # Handle duration - can be timedelta, int (seconds), or float (seconds)
+            duration = result.get('duration')
+            if duration is not None:
+                if isinstance(duration, (int, float)):
+                    duration = timedelta(seconds=duration)
+                # elif already timedelta, use as is
+
             builder.result(
                 success=result.get('success'),
                 response=result.get('response'),
@@ -215,6 +222,7 @@ class StatementBuilder:
                 score_min=result.get('score_min'),
                 score_max=result.get('score_max'),
                 completion=result.get('completion'),
+                duration=duration,
             )
 
         # Set context
@@ -365,10 +373,17 @@ class QuizStatementService:
     def quiz_completed(
         user,
         quiz,
-        registration: uuid.UUID = None
+        registration: uuid.UUID = None,
+        duration_seconds: float = None
     ) -> List[Dict[str, Any]]:
         """
         Create data for completion statements (COMPLETED, PASSED/FAILED).
+
+        Args:
+            user: The user who completed the quiz
+            quiz: The quiz instance
+            registration: Optional registration UUID
+            duration_seconds: Optional quiz duration in seconds
 
         Returns list of statement data dicts.
         """
@@ -380,22 +395,31 @@ class QuizStatementService:
 
         reg_str = str(registration) if registration else None
 
+        # Calculate duration if not provided but quiz has timestamps
+        if duration_seconds is None and hasattr(quiz, 'started_at') and hasattr(quiz, 'completed_at'):
+            if quiz.started_at and quiz.completed_at:
+                duration_seconds = (quiz.completed_at - quiz.started_at).total_seconds()
+
         statements = []
 
-        # COMPLETED statement
+        # COMPLETED statement - include duration
+        completed_result = {
+            'completion': True,
+            'score_scaled': score_scaled,
+            'score_raw': quiz.correct_count,
+            'score_min': 0,
+            'score_max': quiz.total_questions,
+        }
+        if duration_seconds is not None:
+            completed_result['duration'] = duration_seconds
+
         statements.append({
             'actor_user_id': user.id,
             'verb': 'completed',
             'object_id': activity_info['activity_id'],
             'object_name': activity_info['activity_name'],
             'object_type': XAPIActivityType.ASSESSMENT,
-            'result': {
-                'completion': True,
-                'score_scaled': score_scaled,
-                'score_raw': quiz.correct_count,
-                'score_min': 0,
-                'score_max': quiz.total_questions,
-            },
+            'result': completed_result,
             'context': {
                 'registration': reg_str,
                 'quiz_type': getattr(quiz, 'quiz_type', None),

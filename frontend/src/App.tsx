@@ -12,7 +12,12 @@ import QuizDashboardPage from './pages/QuizDashboardPage'
 import WordQuizPage from './pages/WordQuizPage'
 import WordQuizResultPage from './pages/WordQuizResultPage'
 import WordQuizDashboardPage from './pages/WordQuizDashboardPage'
+import FlashcardPage from './pages/FlashcardPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
+import AdminPoliciesPage from './pages/AdminPoliciesPage'
+import WordManagementPage from './pages/WordManagementPage'
+import TermsOfServicePage from './pages/TermsOfServicePage'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 
 function App() {
   const { isLoading } = useAuth()
@@ -101,6 +106,14 @@ function App() {
         }
       />
       <Route
+        path="/flashcard"
+        element={
+          <ProtectedRoute>
+            <FlashcardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin/dashboard"
         element={
           <AdminProtectedRoute>
@@ -108,6 +121,25 @@ function App() {
           </AdminProtectedRoute>
         }
       />
+      <Route
+        path="/admin/words"
+        element={
+          <AdminProtectedRoute>
+            <WordManagementPage />
+          </AdminProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/policies"
+        element={
+          <AdminProtectedRoute>
+            <AdminPoliciesPage />
+          </AdminProtectedRoute>
+        }
+      />
+      {/* Public pages - no authentication required */}
+      <Route path="/terms" element={<TermsOfServicePage />} />
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
