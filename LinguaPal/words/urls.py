@@ -42,6 +42,10 @@ from .views import (
     flashcard_detail,
     flashcard_history,
     flashcard_abandon,
+    # Word Browse (학생용)
+    word_browse_list,
+    word_browse_detail,
+    word_browse_random,
 )
 
 app_name = 'words'
@@ -106,4 +110,9 @@ urlpatterns = [
     path('flashcard/<int:session_id>/current', flashcard_current, name='flashcard_current'),
     path('flashcard/<int:session_id>/answer', flashcard_answer, name='flashcard_answer'),
     path('flashcard/<int:session_id>/abandon', flashcard_abandon, name='flashcard_abandon'),
+
+    # Word Browse API (학생용 단어 보기)
+    path('words/browse', word_browse_list, name='word_browse_list'),
+    path('words/browse/random', word_browse_random, name='word_browse_random'),
+    path('words/browse/<int:word_id>', word_browse_detail, name='word_browse_detail'),
 ]

@@ -641,3 +641,125 @@ class FlashcardAnswerRequestSerializer(serializers.Serializer):
     """플래시카드 응답 요청 Serializer"""
     record_id = serializers.IntegerField(help_text='플래시카드 기록 ID')
     is_known = serializers.BooleanField(help_text='알아요 여부')
+
+
+# =============================================================================
+# Word Browse Serializers (학생용 단어 보기)
+# =============================================================================
+
+class WordBrowseExampleTranslationSerializer(serializers.ModelSerializer):
+    """단어 보기용 예문 번역 Serializer (하이라이트 포함)"""
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name_ko', read_only=True)
+
+    class Meta:
+        model = ExampleTranslation
+        fields = ['id', 'language', 'language_code', 'language_name', 'translated_sentence', 'highlight_indices']
+
+
+class WordBrowseExampleSerializer(serializers.ModelSerializer):
+    """단어 보기용 예문 Serializer (하이라이트 포함)"""
+    translations = WordBrowseExampleTranslationSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Example
+        fields = ['id', 'sentence', 'highlight_indices', 'translations']
+
+
+class WordBrowseTranslationSerializer(serializers.ModelSerializer):
+    """단어 보기용 번역 Serializer"""
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name_ko', read_only=True)
+
+    class Meta:
+        model = WordTranslation
+        fields = ['id', 'language', 'language_code', 'language_name', 'translated_text', 'notes']
+
+
+class WordBrowseSerializer(serializers.ModelSerializer):
+    """단어 보기용 Serializer (문법 속성 및 하이라이트 포함)"""
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name_ko', read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    part_of_speech_display = serializers.CharField(source='get_part_of_speech_display', read_only=True)
+    translations = serializers.SerializerMethodField()
+    examples = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Word
+        fields = [
+            'id', 'language', 'language_code', 'language_name',
+            'category', 'category_display',
+            'text', 'part_of_speech', 'part_of_speech_display',
+            'pronunciation', 'audio_url', 'grammar',
+            'difficulty_level',
+            'translations', 'examples',
+        ]
+
+    def get_translations(self, obj):
+        """사용자 모국어 번역 우선 반환"""
+        native_language_id = self.context.get('native_language_id')
+        if native_language_id:
+            # 모국어 번역 우선
+            translations = obj.translations.filter(language_id=native_language_id)
+            if translations.exists():
+                return WordBrowseTranslationSerializer(translations, many=True).data
+        # 모든 번역 반환
+        return WordBrowseTranslationSerializer(obj.translations.all(), many=True).data
+
+    def get_examples(self, obj):
+        """예문과 하이라이트 반환"""
+        native_language_id = self.context.get('native_language_id')
+        examples = obj.examples.prefetch_related('translations__language').all()
+
+        result = []
+        for example in examples:
+            example_data = {
+                'id': example.id,
+                'sentence': example.sentence,
+                'highlight_indices': example.highlight_indices,
+                'translations': []
+            }
+
+            # 모국어 번역 우선
+            if native_language_id:
+                translations = example.translations.filter(language_id=native_language_id)
+                if translations.exists():
+                    example_data['translations'] = WordBrowseExampleTranslationSerializer(translations, many=True).data
+                else:
+                    example_data['translations'] = WordBrowseExampleTranslationSerializer(example.translations.all(), many=True).data
+            else:
+                example_data['translations'] = WordBrowseExampleTranslationSerializer(example.translations.all(), many=True).data
+
+            result.append(example_data)
+
+        return result
+
+
+class WordBrowseListSerializer(serializers.ModelSerializer):
+    """단어 보기 목록용 간소화 Serializer"""
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name_ko', read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    part_of_speech_display = serializers.CharField(source='get_part_of_speech_display', read_only=True)
+    translation = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Word
+        fields = [
+            'id', 'language', 'language_code', 'language_name',
+            'category', 'category_display',
+            'text', 'part_of_speech', 'part_of_speech_display',
+            'pronunciation', 'difficulty_level', 'translation'
+        ]
+
+    def get_translation(self, obj):
+        """사용자 모국어 번역 반환"""
+        native_language_id = self.context.get('native_language_id')
+        if native_language_id:
+            trans = obj.translations.filter(language_id=native_language_id).first()
+            if trans:
+                return trans.translated_text
+        # 첫 번째 번역 반환
+        first_trans = obj.translations.first()
+        return first_trans.translated_text if first_trans else None

@@ -13,6 +13,7 @@ import WordQuizPage from './pages/WordQuizPage'
 import WordQuizResultPage from './pages/WordQuizResultPage'
 import WordQuizDashboardPage from './pages/WordQuizDashboardPage'
 import FlashcardPage from './pages/FlashcardPage'
+import WordBrowsePage from './pages/WordBrowsePage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminPoliciesPage from './pages/AdminPoliciesPage'
 import WordManagementPage from './pages/WordManagementPage'
@@ -110,6 +111,14 @@ function App() {
         element={
           <ProtectedRoute>
             <FlashcardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/words"
+        element={
+          <ProtectedRoute>
+            <WordBrowsePage />
           </ProtectedRoute>
         }
       />
