@@ -26,6 +26,12 @@ import type {
   BrowseWordParams,
   RandomWordParams,
 } from '../types'
+import type {
+  Vocabulary,
+  VocabularyDetail,
+  VocabularyCreateRequest,
+  AddWordToVocabularyRequest,
+} from '../types/vocabulary'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
@@ -207,6 +213,41 @@ export const wordBrowseApi = {
 
   getRandomWords: (params?: RandomWordParams) =>
     api.get<ApiResponse<{ words: BrowseWord[]; count: number }>>('/words/browse/random', { params }),
+}
+
+// Vocabulary API (단어장)
+export const vocabularyApi = {
+  // 단어장 목록 조회
+  getVocabularies: () =>
+    api.get<ApiResponse<{ vocabularies: Vocabulary[] }>>('/vocabularies'),
+
+  // 단어장 생성
+  createVocabulary: (data: VocabularyCreateRequest) =>
+    api.post<ApiResponse<{ vocabulary: Vocabulary }>>('/vocabularies/create', data),
+
+  // 단어장 상세 조회
+  getVocabulary: (vocabularyId: number) =>
+    api.get<ApiResponse<{ vocabulary: VocabularyDetail }>>(`/vocabularies/${vocabularyId}`),
+
+  // 단어장 수정
+  updateVocabulary: (vocabularyId: number, data: Partial<VocabularyCreateRequest>) =>
+    api.patch<ApiResponse<{ vocabulary: Vocabulary }>>(`/vocabularies/${vocabularyId}/update`, data),
+
+  // 단어장 삭제
+  deleteVocabulary: (vocabularyId: number) =>
+    api.delete<ApiResponse>(`/vocabularies/${vocabularyId}/delete`),
+
+  // 단어장에 단어 추가
+  addWord: (vocabularyId: number, data: AddWordToVocabularyRequest) =>
+    api.post<ApiResponse>(`/vocabularies/${vocabularyId}/words/add`, data),
+
+  // 단어장에서 단어 제거
+  removeWord: (vocabularyId: number, wordId: number) =>
+    api.delete<ApiResponse>(`/vocabularies/${vocabularyId}/words/${wordId}/remove`),
+
+  // 특정 단어가 속한 내 단어장 목록
+  getWordVocabularies: (wordId: number) =>
+    api.get<ApiResponse<{ vocabularies: Vocabulary[] }>>(`/words/${wordId}/vocabularies`),
 }
 
 export default api

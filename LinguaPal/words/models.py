@@ -729,3 +729,94 @@ class FlashcardRecord(models.Model):
     def __str__(self):
         status = '알아요' if self.is_known else ('몰라요' if self.is_known is False else '미응답')
         return f'{self.word.text} - {status}'
+
+
+# =============================================================================
+# 단어장 관련 모델
+# =============================================================================
+
+class Vocabulary(models.Model):
+    """사용자 단어장"""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='vocabularies',
+        verbose_name='사용자'
+    )
+    name = models.CharField(
+        max_length=100,
+        verbose_name='단어장 이름'
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name='설명'
+    )
+    language = models.ForeignKey(
+        Language,
+        on_delete=models.CASCADE,
+        related_name='vocabularies',
+        verbose_name='언어',
+        help_text='이 단어장의 주요 학습 언어'
+    )
+    words = models.ManyToManyField(
+        Word,
+        through='VocabularyWord',
+        related_name='vocabularies',
+        verbose_name='단어 목록'
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name='활성화'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
+
+    class Meta:
+        verbose_name = '단어장'
+        verbose_name_plural = '단어장 목록'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'language']),
+        ]
+
+    def __str__(self):
+        return f'{self.user.email} - {self.name}'
+
+
+class VocabularyWord(models.Model):
+    """단어장에 포함된 단어"""
+    vocabulary = models.ForeignKey(
+        Vocabulary,
+        on_delete=models.CASCADE,
+        related_name='vocabulary_words',
+        verbose_name='단어장'
+    )
+    word = models.ForeignKey(
+        Word,
+        on_delete=models.CASCADE,
+        related_name='in_vocabularies',
+        verbose_name='단어'
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name='개인 메모',
+        help_text='이 단어에 대한 개인적인 메모나 암기 팁'
+    )
+    added_at = models.DateTimeField(auto_now_add=True, verbose_name='추가일')
+
+    class Meta:
+        verbose_name = '단어장 단어'
+        verbose_name_plural = '단어장 단어 목록'
+        ordering = ['-added_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vocabulary', 'word'],
+                name='unique_vocabulary_word'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['vocabulary', 'word']),
+        ]
+
+    def __str__(self):
+        return f'{self.vocabulary.name} - {self.word.text}'

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import { flashcardApi } from '../services/flashcardApi'
+import { tts, getLanguageCode } from '../utils/textToSpeech'
 import type {
   FlashcardSession,
   FlashcardRecord,
@@ -396,8 +397,25 @@ export default function FlashcardPage() {
                 WebkitBackfaceVisibility: 'hidden',
               }}
             >
-              <div className="text-5xl font-bold text-slate-800 mb-4">
-                {currentCard.word.word_text}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="text-5xl font-bold text-slate-800">
+                  {currentCard.word.word_text}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    tts.speak(currentCard.word.word_text, {
+                      lang: getLanguageCode(selectedLanguage),
+                      rate: 0.9,
+                    })
+                  }}
+                  className="p-3 bg-indigo-100 text-indigo-700 rounded-xl hover:bg-indigo-200 transition-colors flex-shrink-0"
+                  title="발음 듣기"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  </svg>
+                </button>
               </div>
               {currentCard.word.word_pronunciation && (
                 <div className="text-xl text-slate-500">
@@ -423,8 +441,25 @@ export default function FlashcardPage() {
               </div>
               {currentCard.word.example && (
                 <div className="text-center mt-4">
-                  <div className="text-lg opacity-90 mb-2">
-                    {renderHighlightedText(currentCard.word.example, currentCard.word.example_highlight)}
+                  <div className="flex items-center justify-center gap-3 mb-2">
+                    <div className="text-lg opacity-90">
+                      {renderHighlightedText(currentCard.word.example, currentCard.word.example_highlight)}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        tts.speak(currentCard.word.example, {
+                          lang: getLanguageCode(selectedLanguage),
+                          rate: 0.85,
+                        })
+                      }}
+                      className="p-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors flex-shrink-0"
+                      title="예문 듣기"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      </svg>
+                    </button>
                   </div>
                   {currentCard.word.example_translation && (
                     <div className="text-sm opacity-75">

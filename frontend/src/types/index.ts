@@ -211,6 +211,7 @@ export interface WordQuizStartRequest {
   learning_language: string
   quiz_type: WordQuizType
   question_count: WordQuizQuestionCount
+  vocabulary_id?: number | null
 }
 
 export interface WordQuizStartResponse {
@@ -310,6 +311,7 @@ export interface FlashcardStartRequest {
   learning_language: string
   category?: FlashcardWordCategory | ''
   card_count?: number
+  vocabulary_id?: number | null
 }
 
 export interface FlashcardStartResponse {

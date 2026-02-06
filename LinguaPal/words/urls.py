@@ -46,6 +46,15 @@ from .views import (
     word_browse_list,
     word_browse_detail,
     word_browse_random,
+    # Vocabulary (단어장)
+    list_vocabularies,
+    create_vocabulary,
+    get_vocabulary,
+    update_vocabulary,
+    delete_vocabulary,
+    add_word_to_vocabulary,
+    remove_word_from_vocabulary,
+    get_word_vocabularies,
 )
 
 app_name = 'words'
@@ -115,4 +124,14 @@ urlpatterns = [
     path('words/browse', word_browse_list, name='word_browse_list'),
     path('words/browse/random', word_browse_random, name='word_browse_random'),
     path('words/browse/<int:word_id>', word_browse_detail, name='word_browse_detail'),
+
+    # Vocabulary API (단어장)
+    path('vocabularies', list_vocabularies, name='list_vocabularies'),
+    path('vocabularies/create', create_vocabulary, name='create_vocabulary'),
+    path('vocabularies/<int:vocabulary_id>', get_vocabulary, name='get_vocabulary'),
+    path('vocabularies/<int:vocabulary_id>/update', update_vocabulary, name='update_vocabulary'),
+    path('vocabularies/<int:vocabulary_id>/delete', delete_vocabulary, name='delete_vocabulary'),
+    path('vocabularies/<int:vocabulary_id>/words/add', add_word_to_vocabulary, name='add_word_to_vocabulary'),
+    path('vocabularies/<int:vocabulary_id>/words/<int:word_id>/remove', remove_word_from_vocabulary, name='remove_word_from_vocabulary'),
+    path('words/<int:word_id>/vocabularies', get_word_vocabularies, name='get_word_vocabularies'),
 ]
