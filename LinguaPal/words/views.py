@@ -38,6 +38,7 @@ from .models import (
     Word, WordTranslation, Example, ExampleTranslation,
     GanaQuiz, GanaQuizQuestion, UserGanaStats,
     WordCategory, GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount,
+    Vocabulary, VocabularyWord,
     WordQuiz, WordQuizQuestion, UserWordStats,
     WordQuizType, WordQuizQuestionCount,
     FlashcardSession, FlashcardRecord
@@ -77,6 +78,11 @@ from .serializers import (
     FlashcardWordSerializer,
     FlashcardStartRequestSerializer,
     FlashcardAnswerRequestSerializer,
+    VocabularyListSerializer,
+    VocabularyDetailSerializer,
+    VocabularyCreateSerializer,
+    AddWordToVocabularySerializer,
+    VocabularyWordSerializer,
 )
 
 
@@ -1053,7 +1059,7 @@ def generate_word_choices(correct_word, all_words, quiz_type, native_language):
 @permission_classes([IsAuthenticated])
 def word_quiz_start(request):
     """단어 퀴즈 시작"""
-    serializer = WordQuizStartRequestSerializer(data=request.data)
+    serializer = WordQuizStartRequestSerializer(data=request.data, context={'request': request})
     if not serializer.is_valid():
         return APIResponse.validation_error(
             errors=serializer.errors,
@@ -1063,6 +1069,7 @@ def word_quiz_start(request):
     learning_language_id = serializer.validated_data['learning_language']
     quiz_type = serializer.validated_data['quiz_type']
     question_count_setting = int(serializer.validated_data['question_count'])
+    vocabulary_id = serializer.validated_data.get('vocabulary_id')
 
     # 학습 언어 조회
     from accounts.models import Language
@@ -1108,11 +1115,19 @@ def word_quiz_start(request):
         translations__language=native_language
     ).distinct()
 
+    # 단어장이 지정된 경우, 해당 단어장의 단어만 필터링
+    if vocabulary_id:
+        vocabulary = get_object_or_404(Vocabulary, id=vocabulary_id, user=request.user)
+        # 단어장에 포함된 단어 ID 목록
+        vocabulary_word_ids = vocabulary.words.values_list('id', flat=True)
+        all_words = all_words.filter(id__in=vocabulary_word_ids)
+
     word_list = list(all_words)
 
     if not word_list:
+        error_message = '해당 단어장에 단어가 없습니다.' if vocabulary_id else '해당 언어에 대한 단어가 없습니다.'
         return APIResponse.error(
-            message='해당 언어에 대한 단어가 없습니다.',
+            message=error_message,
             error_code=ErrorCode.NOT_FOUND,
             status_code=status.HTTP_404_NOT_FOUND
         )
@@ -1509,7 +1524,7 @@ def word_quiz_stats(request):
 @permission_classes([IsAuthenticated])
 def flashcard_start(request):
     """플래시카드 학습 세션 시작"""
-    serializer = FlashcardStartRequestSerializer(data=request.data)
+    serializer = FlashcardStartRequestSerializer(data=request.data, context={'request': request})
     if not serializer.is_valid():
         return APIResponse.error(
             message='Invalid request data',
@@ -1521,6 +1536,7 @@ def flashcard_start(request):
     learning_language_id = serializer.validated_data['learning_language']
     category = serializer.validated_data.get('category', '')
     card_count = serializer.validated_data.get('card_count', 20)
+    vocabulary_id = serializer.validated_data.get('vocabulary_id')
 
     # 사용자의 학습 언어인지 확인
     if not hasattr(user, 'profile') or not user.profile:
@@ -1543,7 +1559,13 @@ def flashcard_start(request):
         is_active=True
     ).prefetch_related('translations', 'examples__translations')
 
-    if category:
+    # 단어장이 지정된 경우, 해당 단어장의 단어만 필터링
+    if vocabulary_id:
+        vocabulary = get_object_or_404(Vocabulary, id=vocabulary_id, user=user)
+        vocabulary_word_ids = vocabulary.words.values_list('id', flat=True)
+        words_qs = words_qs.filter(id__in=vocabulary_word_ids)
+    elif category:
+        # 단어장이 없을 때만 카테고리 필터 적용
         words_qs = words_qs.filter(category=category)
 
     # 사용자 모국어로 번역이 있는 단어만
@@ -1557,9 +1579,10 @@ def flashcard_start(request):
         card_count = len(word_ids)
 
     if card_count == 0:
+        error_message = '해당 단어장에 단어가 없습니다.' if vocabulary_id else '해당 언어에 학습할 단어가 없습니다.'
         return APIResponse.error(
             message='No words available',
-            data={'learning_language': '해당 언어에 학습할 단어가 없습니다.'},
+            data={'learning_language': error_message},
             error_code=ErrorCode.NOT_FOUND
         )
 
@@ -2360,4 +2383,278 @@ def word_browse_random(request):
             'words': serializer.data,
             'count': len(serializer.data)
         }
+    )
+
+
+# =============================================================================
+# 단어장 API
+# =============================================================================
+
+@extend_schema(
+    summary='내 단어장 목록 조회',
+    description='로그인한 사용자의 단어장 목록을 조회합니다.',
+    responses={200: VocabularyListSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_vocabularies(request):
+    """내 단어장 목록 조회"""
+    vocabularies = Vocabulary.objects.filter(
+        user=request.user,
+        is_active=True
+    ).select_related('language').annotate(
+        word_count=Count('words')
+    ).order_by('-created_at')
+
+    serializer = VocabularyListSerializer(vocabularies, many=True)
+    return APIResponse.success(
+        message='Vocabularies retrieved',
+        data={'vocabularies': serializer.data}
+    )
+
+
+@extend_schema(
+    summary='단어장 생성',
+    description='새로운 단어장을 생성합니다.',
+    request=VocabularyCreateSerializer,
+    responses={201: VocabularyListSerializer}
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_vocabulary(request):
+    """단어장 생성"""
+    serializer = VocabularyCreateSerializer(
+        data=request.data,
+        context={'request': request}
+    )
+
+    if not serializer.is_valid():
+        return APIResponse.error(
+            message='Invalid data',
+            error_code=ErrorCode.VALIDATION_ERROR,
+            errors=serializer.errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    vocabulary = serializer.save()
+
+    # Re-query with word_count annotation
+    vocabulary = Vocabulary.objects.filter(id=vocabulary.id).annotate(
+        word_count=Count('words')
+    ).first()
+
+    response_serializer = VocabularyListSerializer(vocabulary)
+    return APIResponse.success(
+        message='Vocabulary created',
+        data={'vocabulary': response_serializer.data},
+        status_code=status.HTTP_201_CREATED
+    )
+
+
+@extend_schema(
+    summary='단어장 상세 조회',
+    description='특정 단어장의 상세 정보와 포함된 단어 목록을 조회합니다.',
+    responses={200: VocabularyDetailSerializer}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_vocabulary(request, vocabulary_id):
+    """단어장 상세 조회"""
+    vocabulary = get_object_or_404(
+        Vocabulary.objects.annotate(word_count=Count('words')),
+        id=vocabulary_id,
+        user=request.user
+    )
+
+    serializer = VocabularyDetailSerializer(vocabulary)
+
+    return APIResponse.success(
+        message='Vocabulary retrieved',
+        data={'vocabulary': serializer.data}
+    )
+
+
+@extend_schema(
+    summary='단어장 수정',
+    description='단어장의 이름, 설명, 활성화 상태를 수정합니다.',
+    request=VocabularyCreateSerializer,
+    responses={200: VocabularyListSerializer}
+)
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def update_vocabulary(request, vocabulary_id):
+    """단어장 수정"""
+    vocabulary = get_object_or_404(
+        Vocabulary,
+        id=vocabulary_id,
+        user=request.user
+    )
+
+    partial = request.method == 'PATCH'
+    serializer = VocabularyCreateSerializer(
+        vocabulary,
+        data=request.data,
+        partial=partial,
+        context={'request': request}
+    )
+
+    if not serializer.is_valid():
+        return APIResponse.error(
+            message='Invalid data',
+            error_code=ErrorCode.VALIDATION_ERROR,
+            errors=serializer.errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    vocabulary = serializer.save()
+
+    # Re-query with word_count annotation
+    vocabulary = Vocabulary.objects.filter(id=vocabulary.id).annotate(
+        word_count=Count('words')
+    ).first()
+
+    response_serializer = VocabularyListSerializer(vocabulary)
+
+    return APIResponse.success(
+        message='Vocabulary updated',
+        data={'vocabulary': response_serializer.data}
+    )
+
+
+@extend_schema(
+    summary='단어장 삭제',
+    description='단어장을 삭제합니다 (소프트 삭제: is_active=False).',
+    responses={200: dict}
+)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_vocabulary(request, vocabulary_id):
+    """단어장 삭제 (소프트 삭제)"""
+    vocabulary = get_object_or_404(
+        Vocabulary,
+        id=vocabulary_id,
+        user=request.user
+    )
+
+    vocabulary.is_active = False
+    vocabulary.save()
+
+    return APIResponse.success(
+        message='Vocabulary deleted'
+    )
+
+
+@extend_schema(
+    summary='단어장에 단어 추가',
+    description='특정 단어장에 단어를 추가합니다.',
+    request=AddWordToVocabularySerializer,
+    responses={201: VocabularyWordSerializer}
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_word_to_vocabulary(request, vocabulary_id):
+    """단어장에 단어 추가"""
+    vocabulary = get_object_or_404(
+        Vocabulary,
+        id=vocabulary_id,
+        user=request.user
+    )
+
+    serializer = AddWordToVocabularySerializer(data=request.data)
+    if not serializer.is_valid():
+        return APIResponse.error(
+            message='Invalid data',
+            error_code=ErrorCode.VALIDATION_ERROR,
+            errors=serializer.errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    word_id = serializer.validated_data['word_id']
+    notes = serializer.validated_data.get('notes', '')
+
+    # 단어 조회
+    word = get_object_or_404(Word, id=word_id)
+
+    # 단어의 언어와 단어장의 언어가 일치하는지 확인
+    if word.language_id != vocabulary.language_id:
+        return APIResponse.error(
+            message=f'Language mismatch: This vocabulary is for {vocabulary.language.name_ko}, but the word is in {word.language.name_ko}',
+            error_code=ErrorCode.VALIDATION_ERROR,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # 이미 추가되어 있는지 확인
+    if VocabularyWord.objects.filter(vocabulary=vocabulary, word_id=word_id).exists():
+        return APIResponse.error(
+            message='Word already exists in vocabulary',
+            error_code=ErrorCode.DUPLICATE_RESOURCE,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # 단어장에 추가
+    vocab_word = VocabularyWord.objects.create(
+        vocabulary=vocabulary,
+        word_id=word_id,
+        notes=notes
+    )
+
+    response_serializer = VocabularyWordSerializer(vocab_word)
+    return APIResponse.success(
+        message='Word added to vocabulary',
+        data={'vocabulary_word': response_serializer.data},
+        status_code=status.HTTP_201_CREATED
+    )
+
+
+@extend_schema(
+    summary='단어장에서 단어 제거',
+    description='특정 단어장에서 단어를 제거합니다.',
+    responses={200: dict}
+)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def remove_word_from_vocabulary(request, vocabulary_id, word_id):
+    """단어장에서 단어 제거"""
+    vocabulary = get_object_or_404(
+        Vocabulary,
+        id=vocabulary_id,
+        user=request.user
+    )
+
+    vocab_word = get_object_or_404(
+        VocabularyWord,
+        vocabulary=vocabulary,
+        word_id=word_id
+    )
+
+    vocab_word.delete()
+
+    return APIResponse.success(
+        message='Word removed from vocabulary'
+    )
+
+
+@extend_schema(
+    summary='단어가 속한 내 단어장 목록',
+    description='특정 단어가 속한 내 단어장 목록을 조회합니다.',
+    responses={200: VocabularyListSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_word_vocabularies(request, word_id):
+    """이 단어가 속한 내 단어장 목록"""
+    word = get_object_or_404(Word, id=word_id)
+
+    vocabularies = Vocabulary.objects.filter(
+        user=request.user,
+        words=word,
+        is_active=True
+    ).select_related('language').annotate(
+        word_count=Count('words')
+    )
+
+    serializer = VocabularyListSerializer(vocabularies, many=True)
+    return APIResponse.success(
+        message='Vocabularies containing this word retrieved',
+        data={'vocabularies': serializer.data}
     )

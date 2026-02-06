@@ -182,6 +182,27 @@ export default function MainPage() {
             </Link>
           </div>
 
+          {/* Vocabulary Card */}
+          <div className="card p-6 group hover:border-rose-200 transition-colors">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center">
+                <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800">내 단어장</h2>
+            </div>
+            <p className="text-slate-500 text-sm mb-3">
+              나만의 단어장을 만들고 관리하세요.
+            </p>
+            <div className="text-xs text-slate-400 mb-4">
+              개인화된 학습
+            </div>
+            <Link to="/vocabulary" className="block w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
+              단어장 관리
+            </Link>
+          </div>
+
           {/* Quiz Card - 단어 퀴즈 (일본어의 경우 가나 포함) */}
           <div className="card p-6 group hover:border-emerald-200 transition-colors">
             <div className="flex items-center gap-3 mb-4">

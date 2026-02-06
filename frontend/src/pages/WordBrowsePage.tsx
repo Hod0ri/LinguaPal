@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import { wordBrowseApi } from '../services/api'
@@ -12,6 +13,8 @@ import type {
 } from '../types'
 import { PART_OF_SPEECH_OPTIONS, DIFFICULTY_OPTIONS } from '../types/word'
 import { getGrammarLabel, getGrammarDescription, translateGrammarValue } from '../constants/grammar'
+import AddToVocabularyButton from '../components/AddToVocabularyButton'
+import { tts, getLanguageCode } from '../utils/textToSpeech'
 
 // View modes
 type ViewMode = 'list' | 'random' | 'detail'
@@ -113,6 +116,7 @@ function renderGrammar(grammar: Record<string, unknown>): React.ReactNode {
 
 export default function WordBrowsePage() {
   const { profile } = useAuth()
+  const [searchParams] = useSearchParams()
 
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -232,6 +236,18 @@ export default function WordBrowsePage() {
       setIsLoading(false)
     }
   }
+
+  // Load word detail from URL parameter
+  useEffect(() => {
+    const wordId = searchParams.get('id')
+    if (wordId) {
+      const id = parseInt(wordId, 10)
+      if (!isNaN(id)) {
+        loadWordDetail(id)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   // Handle search
   const handleSearch = (e: React.FormEvent) => {
@@ -491,8 +507,19 @@ export default function WordBrowsePage() {
         <div className="bg-white rounded-2xl shadow-lg p-8">
           {/* Header */}
           <div className="text-center mb-6">
-            <div className="text-5xl font-bold text-slate-800 mb-2">
-              {currentWord.text}
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <div className="text-5xl font-bold text-slate-800">
+                {currentWord.text}
+              </div>
+              <button
+                onClick={() => tts.speak(currentWord.text, { lang: getLanguageCode(currentWord.language_code), rate: 0.9 })}
+                className="p-3 bg-indigo-100 text-indigo-700 rounded-xl hover:bg-indigo-200 transition-colors"
+                title="발음 듣기"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+              </button>
             </div>
             {currentWord.pronunciation && (
               <div className="text-xl text-slate-500 mb-2">
@@ -551,8 +578,19 @@ export default function WordBrowsePage() {
               <div className="space-y-4">
                 {currentWord.examples.map((example) => (
                   <div key={example.id} className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
-                    <div className="text-lg text-slate-800 mb-2">
-                      {renderHighlightedText(example.sentence, example.highlight_indices)}
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className="flex-1 text-lg text-slate-800">
+                        {renderHighlightedText(example.sentence, example.highlight_indices)}
+                      </div>
+                      <button
+                        onClick={() => tts.speak(example.sentence, { lang: getLanguageCode(currentWord.language_code), rate: 0.85 })}
+                        className="p-2 bg-white/60 text-indigo-700 rounded-lg hover:bg-white transition-colors flex-shrink-0"
+                        title="예문 발음 듣기"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                      </button>
                     </div>
                     {example.translations.map((trans) => (
                       <div key={trans.id} className="text-slate-600">
@@ -623,15 +661,26 @@ export default function WordBrowsePage() {
         <div className="bg-white rounded-2xl shadow-lg p-8">
           {/* Header */}
           <div className="text-center mb-6">
-            <div className="text-5xl font-bold text-slate-800 mb-2">
-              {selectedWord.text}
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <div className="text-5xl font-bold text-slate-800">
+                {selectedWord.text}
+              </div>
+              <button
+                onClick={() => tts.speak(selectedWord.text, { lang: getLanguageCode(selectedWord.language_code), rate: 0.9 })}
+                className="p-3 bg-indigo-100 text-indigo-700 rounded-xl hover:bg-indigo-200 transition-colors"
+                title="발음 듣기"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+              </button>
             </div>
             {selectedWord.pronunciation && (
               <div className="text-xl text-slate-500 mb-2">
                 {selectedWord.pronunciation}
               </div>
             )}
-            <div className="flex justify-center items-center gap-3">
+            <div className="flex justify-center items-center gap-3 mb-4">
               <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium">
                 {selectedWord.part_of_speech_display}
               </span>
@@ -648,6 +697,14 @@ export default function WordBrowsePage() {
                   />
                 ))}
               </div>
+            </div>
+            {/* Add to Vocabulary Button */}
+            <div className="flex justify-center">
+              <AddToVocabularyButton
+                wordId={selectedWord.id}
+                wordText={selectedWord.text}
+                wordLanguageId={selectedWord.language}
+              />
             </div>
           </div>
 
@@ -683,8 +740,19 @@ export default function WordBrowsePage() {
               <div className="space-y-4">
                 {selectedWord.examples.map((example) => (
                   <div key={example.id} className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
-                    <div className="text-lg text-slate-800 mb-2">
-                      {renderHighlightedText(example.sentence, example.highlight_indices)}
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className="flex-1 text-lg text-slate-800">
+                        {renderHighlightedText(example.sentence, example.highlight_indices)}
+                      </div>
+                      <button
+                        onClick={() => tts.speak(example.sentence, { lang: getLanguageCode(selectedWord.language_code), rate: 0.85 })}
+                        className="p-2 bg-white/60 text-indigo-700 rounded-lg hover:bg-white transition-colors flex-shrink-0"
+                        title="예문 발음 듣기"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                      </button>
                     </div>
                     {example.translations.map((trans) => (
                       <div key={trans.id} className="text-slate-600">

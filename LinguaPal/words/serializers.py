@@ -6,7 +6,8 @@ from .models import (
     GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount,
     WordQuiz, WordQuizQuestion, UserWordStats,
     WordQuizType, WordQuizQuestionCount,
-    FlashcardSession, FlashcardRecord
+    FlashcardSession, FlashcardRecord,
+    Vocabulary, VocabularyWord
 )
 from accounts.models import Language
 
@@ -376,6 +377,11 @@ class WordQuizStartRequestSerializer(serializers.Serializer):
     question_count = serializers.IntegerField(
         help_text='문제 수: 10, 25, 0(전체)'
     )
+    vocabulary_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text='단어장 ID (선택사항, 특정 단어장의 단어만 퀴즈에 포함)'
+    )
 
     def validate_learning_language(self, value):
         try:
@@ -383,6 +389,14 @@ class WordQuizStartRequestSerializer(serializers.Serializer):
             return language.id
         except Language.DoesNotExist:
             raise serializers.ValidationError(f'존재하지 않는 언어 코드입니다: {value}')
+
+    def validate_vocabulary_id(self, value):
+        if value is not None:
+            # 요청한 사용자의 단어장인지 확인
+            user = self.context['request'].user
+            if not Vocabulary.objects.filter(id=value, user=user, is_active=True).exists():
+                raise serializers.ValidationError('존재하지 않거나 접근할 수 없는 단어장입니다.')
+        return value
 
 
 class WordQuizQuestionSerializer(serializers.ModelSerializer):
@@ -626,6 +640,11 @@ class FlashcardStartRequestSerializer(serializers.Serializer):
         default=20,
         help_text='카드 수 (5-100)'
     )
+    vocabulary_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text='단어장 ID (선택사항, 특정 단어장의 단어만 플래시카드에 포함)'
+    )
 
     def validate_learning_language(self, value):
         """언어 코드를 언어 ID로 변환"""
@@ -635,6 +654,14 @@ class FlashcardStartRequestSerializer(serializers.Serializer):
             return language.id
         except Language.DoesNotExist:
             raise serializers.ValidationError('존재하지 않는 언어 코드입니다.')
+
+    def validate_vocabulary_id(self, value):
+        if value is not None:
+            # 요청한 사용자의 단어장인지 확인
+            user = self.context['request'].user
+            if not Vocabulary.objects.filter(id=value, user=user, is_active=True).exists():
+                raise serializers.ValidationError('존재하지 않거나 접근할 수 없는 단어장입니다.')
+        return value
 
 
 class FlashcardAnswerRequestSerializer(serializers.Serializer):
@@ -763,3 +790,81 @@ class WordBrowseListSerializer(serializers.ModelSerializer):
         # 첫 번째 번역 반환
         first_trans = obj.translations.first()
         return first_trans.translated_text if first_trans else None
+
+
+# =============================================================================
+# 단어장 Serializers
+# =============================================================================
+
+class VocabularyWordSerializer(serializers.ModelSerializer):
+    """단어장 내 단어 Serializer"""
+    word = WordBrowseListSerializer(read_only=True)
+    word_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = VocabularyWord
+        fields = ['id', 'word', 'word_id', 'notes', 'added_at']
+        read_only_fields = ['id', 'added_at']
+
+
+class VocabularyListSerializer(serializers.ModelSerializer):
+    """단어장 목록 Serializer (간소화)"""
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name_ko', read_only=True)
+    word_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Vocabulary
+        fields = [
+            'id', 'name', 'description',
+            'language', 'language_code', 'language_name',
+            'word_count', 'is_active',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class VocabularyDetailSerializer(serializers.ModelSerializer):
+    """단어장 상세 Serializer (단어 목록 포함)"""
+    language_code = serializers.CharField(source='language.code', read_only=True)
+    language_name = serializers.CharField(source='language.name_ko', read_only=True)
+    word_count = serializers.IntegerField(read_only=True)
+    vocabulary_words = VocabularyWordSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Vocabulary
+        fields = [
+            'id', 'name', 'description',
+            'language', 'language_code', 'language_name',
+            'word_count', 'is_active',
+            'vocabulary_words',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class VocabularyCreateSerializer(serializers.ModelSerializer):
+    """단어장 생성 Serializer"""
+    class Meta:
+        model = Vocabulary
+        fields = ['name', 'description', 'language', 'is_active']
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class AddWordToVocabularySerializer(serializers.Serializer):
+    """단어장에 단어 추가 Serializer"""
+    word_id = serializers.IntegerField(help_text='추가할 단어 ID')
+    notes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text='개인 메모'
+    )
+
+    def validate_word_id(self, value):
+        """단어 존재 여부 확인"""
+        if not Word.objects.filter(id=value).exists():
+            raise serializers.ValidationError('존재하지 않는 단어입니다.')
+        return value
