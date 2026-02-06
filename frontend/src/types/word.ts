@@ -3,7 +3,7 @@
  */
 
 // Word Categories
-export type WordCategory = 'word' | 'hiragana' | 'katakana' | 'kanji' | 'alphabet'
+export type WordCategory = 'word' | 'hiragana' | 'katakana' | 'alphabet'
 
 // Parts of Speech
 export type PartOfSpeech =
@@ -169,7 +169,6 @@ export const WORD_CATEGORY_OPTIONS: { value: WordCategory; label: string }[] = [
   { value: 'word', label: '단어' },
   { value: 'hiragana', label: '히라가나' },
   { value: 'katakana', label: '가타카나' },
-  { value: 'kanji', label: '한자' },
   { value: 'alphabet', label: '알파벳' },
 ]
 
@@ -198,3 +197,102 @@ export const DIFFICULTY_OPTIONS = [
   { value: 4, label: '4' },
   { value: 5, label: '5 (고급)' },
 ]
+
+// ============= Word Browse Types (학생용) =============
+
+// Example Translation with highlight indices
+export interface BrowseExampleTranslation {
+  id: number
+  language: number
+  language_code: string
+  language_name: string
+  translated_sentence: string
+  highlight_indices: number[] | null
+}
+
+// Example with highlight indices
+export interface BrowseExample {
+  id: number
+  sentence: string
+  highlight_indices: number[] | null
+  translations: BrowseExampleTranslation[]
+}
+
+// Translation for browse
+export interface BrowseTranslation {
+  id: number
+  language: number
+  language_code: string
+  language_name: string
+  translated_text: string
+  notes: string
+}
+
+// Full Word for browsing (includes grammar and highlight)
+export interface BrowseWord {
+  id: number
+  language: number
+  language_code: string
+  language_name: string
+  category: WordCategory
+  category_display: string
+  text: string
+  part_of_speech: PartOfSpeech
+  part_of_speech_display: string
+  pronunciation: string
+  audio_url: string
+  grammar: Record<string, unknown>
+  difficulty_level: number
+  translations: BrowseTranslation[]
+  examples: BrowseExample[]
+}
+
+// Word list item for browse
+export interface BrowseWordListItem {
+  id: number
+  language: number
+  language_code: string
+  language_name: string
+  category: WordCategory
+  category_display: string
+  text: string
+  part_of_speech: PartOfSpeech
+  part_of_speech_display: string
+  pronunciation: string
+  difficulty_level: number
+  translation: string | null
+}
+
+// Pagination info
+export interface Pagination {
+  page: number
+  page_size: number
+  total_count: number
+  total_pages: number
+}
+
+// Word browse list response
+export interface BrowseWordListResponse {
+  words: BrowseWordListItem[]
+  pagination: Pagination
+}
+
+// Word browse query params
+export interface BrowseWordParams {
+  language?: string
+  category?: WordCategory
+  part_of_speech?: PartOfSpeech
+  difficulty_level?: number
+  search?: string
+  order_by?: 'text' | 'difficulty_level' | 'created_at' | 'pronunciation'
+  order_dir?: 'asc' | 'desc'
+  page?: number
+  page_size?: number
+}
+
+// Random word params
+export interface RandomWordParams {
+  language?: string
+  category?: WordCategory
+  count?: number
+}

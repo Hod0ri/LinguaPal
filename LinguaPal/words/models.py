@@ -8,7 +8,6 @@ class WordCategory(models.TextChoices):
     WORD = 'word', '단어'
     HIRAGANA = 'hiragana', '히라가나'
     KATAKANA = 'katakana', '가타카나'
-    KANJI = 'kanji', '한자'
     ALPHABET = 'alphabet', '알파벳'
 
 

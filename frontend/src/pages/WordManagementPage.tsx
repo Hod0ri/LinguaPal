@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { wordApi, wordTranslationApi, wordExampleApi } from '../services/wordApi'
@@ -23,6 +23,37 @@ import {
   PART_OF_SPEECH_OPTIONS,
   DIFFICULTY_OPTIONS,
 } from '../types/word'
+import {
+  GRAMMAR_PROPERTIES,
+  getSuggestedGrammarProperties,
+  getGrammarLabel,
+  getGrammarDescription,
+  getGrammarExamples,
+  translateGrammarValue,
+} from '../constants/grammar'
+
+/**
+ * Format grammar value for display
+ * Handles objects, arrays, and primitive values
+ * Uses Korean labels for nested keys
+ * Translates Japanese grammar terms to Korean
+ */
+function formatGrammarValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '-'
+  }
+  if (typeof value === 'object') {
+    if (Array.isArray(value)) {
+      return value.map(v => translateGrammarValue(String(v))).join(', ')
+    }
+    // For objects, show key-value pairs with Korean labels
+    return Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `${getGrammarLabel(k)}: ${formatGrammarValue(v)}`)
+      .join(', ')
+  }
+  // Translate Japanese grammar terms (like 五段動詞, い形容詞)
+  return translateGrammarValue(String(value))
+}
 
 // ============= Modal Component =============
 function Modal({
@@ -72,6 +103,379 @@ function Modal({
   )
 }
 
+// ============= Grammar Editor Modal =============
+function GrammarEditorModal({
+  isOpen,
+  onClose,
+  grammar,
+  onSave,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  grammar: Record<string, unknown>
+  onSave: (grammar: Record<string, unknown>) => void
+}) {
+  const [editedGrammar, setEditedGrammar] = useState<Record<string, unknown>>(grammar)
+  const [newPropertyKey, setNewPropertyKey] = useState('')
+  const [showAddProperty, setShowAddProperty] = useState(false)
+  const [expandedObjects, setExpandedObjects] = useState<Set<string>>(new Set())
+  const [customPropertyMode, setCustomPropertyMode] = useState(false)
+
+  // Reset when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setEditedGrammar(grammar)
+      setNewPropertyKey('')
+      setShowAddProperty(false)
+      setCustomPropertyMode(false)
+    }
+  }, [isOpen, grammar])
+
+  // Update a simple value
+  const updateValue = (key: string, value: string) => {
+    setEditedGrammar(prev => ({ ...prev, [key]: value }))
+  }
+
+  // Update a nested value (for objects like forms)
+  const updateNestedValue = (parentKey: string, childKey: string, value: string) => {
+    setEditedGrammar(prev => ({
+      ...prev,
+      [parentKey]: {
+        ...(prev[parentKey] as Record<string, unknown>),
+        [childKey]: value,
+      },
+    }))
+  }
+
+  // Delete a property
+  const deleteProperty = (key: string) => {
+    setEditedGrammar(prev => {
+      const newGrammar = { ...prev }
+      delete newGrammar[key]
+      return newGrammar
+    })
+  }
+
+  // Delete a nested property
+  const deleteNestedProperty = (parentKey: string, childKey: string) => {
+    setEditedGrammar(prev => {
+      const parent = { ...(prev[parentKey] as Record<string, unknown>) }
+      delete parent[childKey]
+      if (Object.keys(parent).length === 0) {
+        const newGrammar = { ...prev }
+        delete newGrammar[parentKey]
+        return newGrammar
+      }
+      return { ...prev, [parentKey]: parent }
+    })
+  }
+
+  // Add a new property
+  const addProperty = (key: string) => {
+    if (key && !(key in editedGrammar)) {
+      setEditedGrammar(prev => ({ ...prev, [key]: '' }))
+      setNewPropertyKey('')
+      setShowAddProperty(false)
+      setCustomPropertyMode(false)
+    }
+  }
+
+  // Add a nested property to an object
+  const addNestedProperty = (parentKey: string, childKey: string) => {
+    if (childKey) {
+      const parent = (editedGrammar[parentKey] as Record<string, unknown>) || {}
+      if (!(childKey in parent)) {
+        setEditedGrammar(prev => ({
+          ...prev,
+          [parentKey]: { ...parent, [childKey]: '' },
+        }))
+      }
+    }
+  }
+
+  // Convert simple value to object (for forms-like properties)
+  const convertToObject = (key: string) => {
+    setEditedGrammar(prev => ({
+      ...prev,
+      [key]: { 'm.sg': '', 'f.sg': '', 'm.pl': '', 'f.pl': '' },
+    }))
+    setExpandedObjects(prev => new Set(prev).add(key))
+  }
+
+  // Toggle object expansion
+  const toggleExpanded = (key: string) => {
+    setExpandedObjects(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
+  const handleSave = () => {
+    // Clean up empty values
+    const cleaned: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(editedGrammar)) {
+      if (typeof value === 'object' && value !== null) {
+        const nestedCleaned: Record<string, unknown> = {}
+        for (const [nk, nv] of Object.entries(value as Record<string, unknown>)) {
+          if (nv !== '' && nv !== null && nv !== undefined) {
+            nestedCleaned[nk] = nv
+          }
+        }
+        if (Object.keys(nestedCleaned).length > 0) {
+          cleaned[key] = nestedCleaned
+        }
+      } else if (value !== '' && value !== null && value !== undefined) {
+        cleaned[key] = value
+      }
+    }
+    onSave(cleaned)
+    onClose()
+  }
+
+  // Common nested keys for forms
+  const nestedKeyOptions = [
+    { value: 'm.sg', label: '남성 단수 (m.sg)' },
+    { value: 'f.sg', label: '여성 단수 (f.sg)' },
+    { value: 'm.pl', label: '남성 복수 (m.pl)' },
+    { value: 'f.pl', label: '여성 복수 (f.pl)' },
+    { value: 'n.sg', label: '중성 단수 (n.sg)' },
+    { value: 'n.pl', label: '중성 복수 (n.pl)' },
+  ]
+
+  if (!isOpen) return null
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="문법 속성 편집" size="lg">
+      <div className="space-y-4">
+        {/* Existing Properties */}
+        {Object.entries(editedGrammar).map(([key, value]) => (
+          <div key={key} className="border border-slate-200 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-indigo-600">{getGrammarLabel(key)}</span>
+                <span className="text-xs text-slate-400">({key})</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {typeof value !== 'object' && (
+                  <button
+                    type="button"
+                    onClick={() => convertToObject(key)}
+                    className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                    title="객체로 변환 (성/수 변화형)"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => deleteProperty(key)}
+                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                  title="삭제"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {typeof value === 'object' && value !== null ? (
+              // Nested object (like forms)
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(key)}
+                  className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                >
+                  <svg className={`w-3 h-3 transition-transform ${expandedObjects.has(key) ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  {expandedObjects.has(key) ? '접기' : '펼치기'} ({Object.keys(value as object).length}개)
+                </button>
+
+                {expandedObjects.has(key) && (
+                  <div className="ml-4 space-y-2 border-l-2 border-indigo-100 pl-3">
+                    {Object.entries(value as Record<string, unknown>).map(([nk, nv]) => (
+                      <div key={nk} className="flex items-center gap-2">
+                        <span className="text-sm text-slate-600 w-24">{getGrammarLabel(nk)}</span>
+                        <input
+                          type="text"
+                          value={String(nv || '')}
+                          onChange={(e) => updateNestedValue(key, nk, e.target.value)}
+                          className="flex-1 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => deleteNestedProperty(key, nk)}
+                          className="p-1 text-slate-400 hover:text-rose-600"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    {/* Add nested property */}
+                    <div className="flex items-center gap-2 mt-2">
+                      <select
+                        className="text-sm border border-slate-300 rounded px-2 py-1"
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            addNestedProperty(key, e.target.value)
+                            e.target.value = ''
+                          }
+                        }}
+                        defaultValue=""
+                      >
+                        <option value="">+ 항목 추가...</option>
+                        {nestedKeyOptions
+                          .filter(opt => !(opt.value in (value as Record<string, unknown>)))
+                          .map(opt => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                      </select>
+                      <span className="text-xs text-slate-400">또는</span>
+                      <input
+                        type="text"
+                        placeholder="커스텀 키"
+                        className="text-sm border border-slate-300 rounded px-2 py-1 w-24"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            const input = e.target as HTMLInputElement
+                            if (input.value.trim()) {
+                              addNestedProperty(key, input.value.trim())
+                              input.value = ''
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Simple value
+              <input
+                type="text"
+                value={String(value || '')}
+                onChange={(e) => updateValue(key, e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                placeholder={getGrammarExamples(key) || '값을 입력하세요'}
+              />
+            )}
+
+            {getGrammarDescription(key) && (
+              <p className="text-xs text-slate-400 mt-1">{getGrammarDescription(key)}</p>
+            )}
+          </div>
+        ))}
+
+        {/* Add New Property */}
+        {showAddProperty ? (
+          <div className="border border-dashed border-indigo-300 rounded-lg p-3 bg-indigo-50">
+            {/* Toggle between predefined and custom */}
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setCustomPropertyMode(false)}
+                className={`px-3 py-1 text-sm rounded-lg ${!customPropertyMode ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-300'}`}
+              >
+                사전 정의 속성
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomPropertyMode(true)}
+                className={`px-3 py-1 text-sm rounded-lg ${customPropertyMode ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-300'}`}
+              >
+                커스텀 속성
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 mb-2">
+              {customPropertyMode ? (
+                // Custom property input
+                <input
+                  type="text"
+                  value={newPropertyKey}
+                  onChange={(e) => setNewPropertyKey(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg"
+                  placeholder="속성 키 입력 (예: custom_field)"
+                />
+              ) : (
+                // Predefined property dropdown
+                <select
+                  value={newPropertyKey}
+                  onChange={(e) => setNewPropertyKey(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg"
+                >
+                  <option value="">속성 선택...</option>
+                  {Object.keys(GRAMMAR_PROPERTIES)
+                    .filter(k => !(k in editedGrammar))
+                    .map(k => (
+                      <option key={k} value={k}>{getGrammarLabel(k)} ({k})</option>
+                    ))}
+                </select>
+              )}
+              <button
+                type="button"
+                onClick={() => addProperty(newPropertyKey)}
+                disabled={!newPropertyKey || (newPropertyKey in editedGrammar)}
+                className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                추가
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddProperty(false)}
+                className="px-3 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+              >
+                취소
+              </button>
+            </div>
+            {newPropertyKey && getGrammarDescription(newPropertyKey) && (
+              <p className="text-xs text-indigo-600">{getGrammarDescription(newPropertyKey)}</p>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowAddProperty(true)}
+            className="w-full py-3 border-2 border-dashed border-slate-300 rounded-lg text-slate-500 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+          >
+            + 새 속성 추가
+          </button>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+          >
+            저장
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ============= Word Form Component =============
 function WordForm({
   word,
@@ -101,6 +505,58 @@ function WordForm({
   const [grammarText, setGrammarText] = useState(
     word?.grammar ? JSON.stringify(word.grammar, null, 2) : '{}'
   )
+
+  // Grammar helper state
+  const [showGrammarHelper, setShowGrammarHelper] = useState(false)
+  const [showGrammarEditor, setShowGrammarEditor] = useState(false)
+
+  // Get current grammar object for editor
+  const currentGrammar = useMemo(() => {
+    try {
+      return JSON.parse(grammarText) as Record<string, unknown>
+    } catch {
+      return {}
+    }
+  }, [grammarText])
+
+  // Handle grammar save from editor
+  const handleGrammarSave = (newGrammar: Record<string, unknown>) => {
+    setGrammarText(JSON.stringify(newGrammar, null, 2))
+  }
+
+  // Get selected language code
+  const selectedLanguageCode = useMemo(() => {
+    const lang = languages.find(l => l.id === formData.language_id)
+    return lang?.code || ''
+  }, [languages, formData.language_id])
+
+  // Get suggested grammar properties based on language and part of speech
+  const suggestedProperties = useMemo(() => {
+    return getSuggestedGrammarProperties(selectedLanguageCode, formData.part_of_speech)
+  }, [selectedLanguageCode, formData.part_of_speech])
+
+  // Add a grammar property to the JSON
+  const addGrammarProperty = (key: string) => {
+    try {
+      const current = JSON.parse(grammarText) as Record<string, unknown>
+      if (!(key in current)) {
+        current[key] = ''
+        setGrammarText(JSON.stringify(current, null, 2))
+      }
+    } catch {
+      // If parse fails, create new object with the property
+      setGrammarText(JSON.stringify({ [key]: '' }, null, 2))
+    }
+  }
+
+  // Apply a template for the language/part_of_speech
+  const applyTemplate = () => {
+    const properties = suggestedProperties.reduce((acc, key) => {
+      acc[key] = ''
+      return acc
+    }, {} as Record<string, string>)
+    setGrammarText(JSON.stringify(properties, null, 2))
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -252,20 +708,148 @@ function WordForm({
         </div>
       </div>
 
-      {/* Grammar (JSON) */}
+      {/* Grammar (JSON) with Helper */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-1">
-          문법 속성 (JSON)
-        </label>
-        <textarea
-          value={grammarText}
-          onChange={(e) => setGrammarText(e.target.value)}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
-          rows={3}
-          placeholder='{"romanji": "hana", "row": "ha"}'
-        />
-        <p className="text-xs text-slate-400 mt-1">동사변화, 로마자(romanji), 행(row) 등</p>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-sm font-medium text-slate-700">
+            문법 속성
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowGrammarEditor(true)}
+              className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 flex items-center gap-1"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              편집기 열기
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowGrammarHelper(!showGrammarHelper)}
+              className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {showGrammarHelper ? '도움말 닫기' : 'JSON 도움말'}
+            </button>
+          </div>
+        </div>
+
+        {/* Grammar Helper Panel */}
+        {showGrammarHelper && (
+          <div className="mb-3 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+            {/* Suggested Properties */}
+            {suggestedProperties.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-indigo-800">
+                    추천 속성 ({selectedLanguageCode.toUpperCase()} - {formData.part_of_speech})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={applyTemplate}
+                    className="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  >
+                    템플릿 적용
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {suggestedProperties.map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => addGrammarProperty(key)}
+                      className="group relative px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs hover:bg-indigo-200 transition-colors"
+                    >
+                      <span className="font-medium">{getGrammarLabel(key)}</span>
+                      <span className="text-indigo-400 ml-1">({key})</span>
+                      {/* Tooltip */}
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 max-w-xs text-left">
+                        <span className="font-medium block">{getGrammarLabel(key)}</span>
+                        <span className="text-slate-300 block">{getGrammarDescription(key)}</span>
+                        {getGrammarExamples(key) && (
+                          <span className="text-indigo-300 block mt-1">예: {getGrammarExamples(key)}</span>
+                        )}
+                        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* All Properties */}
+            <div>
+              <span className="text-sm font-medium text-slate-700 block mb-2">
+                모든 속성 (클릭하여 추가)
+              </span>
+              <div className="max-h-48 overflow-y-auto">
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.keys(GRAMMAR_PROPERTIES).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => addGrammarProperty(key)}
+                      className="group relative px-2 py-1 bg-white text-slate-600 rounded text-xs hover:bg-slate-100 border border-slate-200 transition-colors"
+                    >
+                      <span>{getGrammarLabel(key)}</span>
+                      {/* Tooltip */}
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 max-w-xs text-left">
+                        <span className="font-medium block">{getGrammarLabel(key)} ({key})</span>
+                        <span className="text-slate-300 block">{getGrammarDescription(key)}</span>
+                        {getGrammarExamples(key) && (
+                          <span className="text-indigo-300 block mt-1">예: {getGrammarExamples(key)}</span>
+                        )}
+                        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Current grammar preview */}
+        {Object.keys(currentGrammar).length > 0 && (
+          <div className="mb-2 p-3 bg-slate-50 rounded-lg">
+            <p className="text-xs text-slate-500 mb-2">현재 설정된 속성:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(currentGrammar).map(([key, value]) => (
+                <span key={key} className="px-2 py-1 bg-white text-slate-700 rounded text-xs border border-slate-200">
+                  <span className="font-medium text-indigo-600">{getGrammarLabel(key)}:</span>{' '}
+                  {formatGrammarValue(value)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <details className="text-sm">
+          <summary className="text-slate-500 cursor-pointer hover:text-slate-700">JSON 직접 편집</summary>
+          <textarea
+            value={grammarText}
+            onChange={(e) => setGrammarText(e.target.value)}
+            className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+            rows={4}
+            placeholder='{"past": "went", "past_participle": "gone"}'
+          />
+        </details>
+        <p className="text-xs text-slate-400 mt-1">
+          "편집기 열기" 버튼으로 쉽게 편집하거나, JSON을 직접 수정할 수 있습니다
+        </p>
       </div>
+
+      {/* Grammar Editor Modal */}
+      <GrammarEditorModal
+        isOpen={showGrammarEditor}
+        onClose={() => setShowGrammarEditor(false)}
+        grammar={currentGrammar}
+        onSave={handleGrammarSave}
+      />
 
       {/* Buttons */}
       <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
@@ -612,9 +1196,24 @@ function WordDetailPanel({
         {word.grammar && Object.keys(word.grammar).length > 0 && (
           <div className="col-span-2">
             <span className="text-xs text-slate-500">문법 속성</span>
-            <pre className="text-sm text-slate-700 bg-white p-2 rounded mt-1 overflow-auto">
-              {JSON.stringify(word.grammar, null, 2)}
-            </pre>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {Object.entries(word.grammar).map(([key, value]) => (
+                <span
+                  key={key}
+                  className="group relative px-2 py-1 bg-white text-slate-700 rounded text-sm border border-slate-200 cursor-help"
+                  title={getGrammarDescription(key)}
+                >
+                  <span className="font-medium text-indigo-600">{getGrammarLabel(key)}:</span>{' '}
+                  {formatGrammarValue(value)}
+                  {/* Tooltip */}
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 max-w-xs text-left">
+                    <span className="font-medium block">{getGrammarLabel(key)} ({key})</span>
+                    <span className="text-slate-300 block">{getGrammarDescription(key)}</span>
+                    <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
+                  </span>
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </div>

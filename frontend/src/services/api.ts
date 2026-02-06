@@ -21,6 +21,10 @@ import type {
   WordQuiz,
   WordQuizListItem,
   WordQuizStats,
+  BrowseWord,
+  BrowseWordListResponse,
+  BrowseWordParams,
+  RandomWordParams,
 } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
@@ -191,6 +195,18 @@ export const policyApi = {
 
   updatePolicy: (type: 'terms' | 'privacy', content: string) =>
     api.put<ApiResponse<PolicyDocument>>(`/policies/${type}`, { content }),
+}
+
+// Word Browse API (학생용 단어 보기)
+export const wordBrowseApi = {
+  getWords: (params?: BrowseWordParams) =>
+    api.get<ApiResponse<BrowseWordListResponse>>('/words/browse', { params }),
+
+  getWordDetail: (wordId: number) =>
+    api.get<ApiResponse<BrowseWord>>(`/words/browse/${wordId}`),
+
+  getRandomWords: (params?: RandomWordParams) =>
+    api.get<ApiResponse<{ words: BrowseWord[]; count: number }>>('/words/browse/random', { params }),
 }
 
 export default api

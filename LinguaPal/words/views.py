@@ -2040,3 +2040,324 @@ def word_quiz_reset(request):
             'total_deleted': word_deleted_count + gana_deleted_count
         }
     )
+
+
+# =============================================================================
+# 단어 보기 API (학생용)
+# =============================================================================
+
+@extend_schema(
+    tags=['단어 보기'],
+    summary="단어 목록 조회",
+    description="""
+    학생이 학습 중인 언어의 단어를 검색하고 조회합니다.
+
+    **필터링 옵션:**
+    - `language`: 언어 코드 (ja, en, es 등)
+    - `category`: 카테고리 (word, hiragana, katakana 등)
+    - `part_of_speech`: 품사 (noun, verb, adjective 등)
+    - `difficulty_level`: 난이도 (1-5)
+    - `search`: 검색어 (단어 텍스트 또는 발음)
+
+    **정렬 옵션:**
+    - `order_by`: 정렬 기준 (text, difficulty_level, created_at)
+    - `order_dir`: 정렬 방향 (asc, desc)
+
+    **페이지네이션:**
+    - `page`: 페이지 번호 (기본: 1)
+    - `page_size`: 페이지당 개수 (기본: 20, 최대: 100)
+    """,
+    parameters=[
+        OpenApiParameter(name='language', description='언어 코드', required=False, type=str),
+        OpenApiParameter(name='category', description='카테고리', required=False, type=str),
+        OpenApiParameter(name='part_of_speech', description='품사', required=False, type=str),
+        OpenApiParameter(name='difficulty_level', description='난이도 (1-5)', required=False, type=int),
+        OpenApiParameter(name='search', description='검색어', required=False, type=str),
+        OpenApiParameter(name='order_by', description='정렬 기준', required=False, type=str),
+        OpenApiParameter(name='order_dir', description='정렬 방향 (asc/desc)', required=False, type=str),
+        OpenApiParameter(name='page', description='페이지 번호', required=False, type=int),
+        OpenApiParameter(name='page_size', description='페이지당 개수', required=False, type=int),
+    ],
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def word_browse_list(request):
+    """학생용 단어 목록 조회"""
+    from .serializers import WordBrowseListSerializer
+    from accounts.models import Language
+
+    user = request.user
+    user_profile = getattr(user, 'profile', None)
+
+    if not user_profile:
+        return APIResponse.error(
+            message='프로필이 설정되지 않았습니다.',
+            error_code=ErrorCode.NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # 사용자의 학습 언어 목록
+    learning_languages = user_profile.learning_languages.all()
+    learning_language_ids = list(learning_languages.values_list('id', flat=True))
+
+    if not learning_language_ids:
+        return APIResponse.error(
+            message='학습 중인 언어가 없습니다.',
+            error_code=ErrorCode.NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    # 사용자의 모국어 조회
+    COUNTRY_TO_LANGUAGE = {
+        'KR': 'ko', 'JP': 'ja', 'US': 'en', 'GB': 'en', 'ES': 'es', 'CN': 'zh',
+    }
+    native_language = None
+    if user_profile.country:
+        lang_code = COUNTRY_TO_LANGUAGE.get(user_profile.country.code)
+        if lang_code:
+            native_language = Language.objects.filter(code=lang_code).first()
+    if not native_language:
+        native_language = Language.objects.filter(code='ko').first()
+
+    # 기본 쿼리 (학습 중인 언어의 단어만, category=word)
+    queryset = Word.objects.filter(
+        language_id__in=learning_language_ids,
+        category=WordCategory.WORD,
+        is_active=True
+    ).select_related('language').prefetch_related('translations')
+
+    # 언어 필터
+    language_code = request.query_params.get('language')
+    if language_code:
+        queryset = queryset.filter(language__code=language_code)
+
+    # 카테고리 필터 (히라가나/카타카나 등 다른 카테고리도 볼 수 있도록)
+    category = request.query_params.get('category')
+    if category:
+        queryset = Word.objects.filter(
+            language_id__in=learning_language_ids,
+            category=category,
+            is_active=True
+        ).select_related('language').prefetch_related('translations')
+
+    # 품사 필터
+    part_of_speech = request.query_params.get('part_of_speech')
+    if part_of_speech:
+        queryset = queryset.filter(part_of_speech=part_of_speech)
+
+    # 난이도 필터
+    difficulty_level = request.query_params.get('difficulty_level')
+    if difficulty_level:
+        queryset = queryset.filter(difficulty_level=int(difficulty_level))
+
+    # 검색 (단어 텍스트 또는 발음)
+    search = request.query_params.get('search')
+    if search:
+        queryset = queryset.filter(
+            Q(text__icontains=search) | Q(pronunciation__icontains=search)
+        )
+
+    # 정렬
+    order_by = request.query_params.get('order_by', 'text')
+    order_dir = request.query_params.get('order_dir', 'asc')
+    valid_order_fields = ['text', 'difficulty_level', 'created_at', 'pronunciation']
+    if order_by not in valid_order_fields:
+        order_by = 'text'
+    if order_dir == 'desc':
+        order_by = f'-{order_by}'
+    queryset = queryset.order_by(order_by)
+
+    # 페이지네이션
+    page = int(request.query_params.get('page', 1))
+    page_size = min(int(request.query_params.get('page_size', 20)), 100)
+    total_count = queryset.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+    queryset = queryset[start:end]
+
+    serializer_context = {'native_language_id': native_language.id if native_language else None}
+    serializer = WordBrowseListSerializer(queryset, many=True, context=serializer_context)
+
+    return APIResponse.success(
+        message='Words retrieved',
+        data={
+            'words': serializer.data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total_count': total_count,
+                'total_pages': (total_count + page_size - 1) // page_size
+            }
+        }
+    )
+
+
+@extend_schema(
+    tags=['단어 보기'],
+    summary="단어 상세 조회",
+    description="특정 단어의 상세 정보를 조회합니다. 문법 속성, 예문, 하이라이트 정보가 포함됩니다.",
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def word_browse_detail(request, word_id):
+    """학생용 단어 상세 조회"""
+    from .serializers import WordBrowseSerializer
+    from accounts.models import Language
+
+    user = request.user
+    user_profile = getattr(user, 'profile', None)
+
+    if not user_profile:
+        return APIResponse.error(
+            message='프로필이 설정되지 않았습니다.',
+            error_code=ErrorCode.NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # 사용자의 학습 언어 목록
+    learning_language_ids = list(user_profile.learning_languages.values_list('id', flat=True))
+
+    # 단어 조회 (학습 중인 언어만)
+    word = get_object_or_404(
+        Word.objects.select_related('language').prefetch_related(
+            'translations__language', 'examples__translations__language'
+        ),
+        pk=word_id,
+        language_id__in=learning_language_ids,
+        is_active=True
+    )
+
+    # 사용자의 모국어 조회
+    COUNTRY_TO_LANGUAGE = {
+        'KR': 'ko', 'JP': 'ja', 'US': 'en', 'GB': 'en', 'ES': 'es', 'CN': 'zh',
+    }
+    native_language = None
+    if user_profile.country:
+        lang_code = COUNTRY_TO_LANGUAGE.get(user_profile.country.code)
+        if lang_code:
+            native_language = Language.objects.filter(code=lang_code).first()
+    if not native_language:
+        native_language = Language.objects.filter(code='ko').first()
+
+    serializer_context = {'native_language_id': native_language.id if native_language else None}
+    serializer = WordBrowseSerializer(word, context=serializer_context)
+
+    return APIResponse.success(
+        message='Word retrieved',
+        data=serializer.data
+    )
+
+
+@extend_schema(
+    tags=['단어 보기'],
+    summary="랜덤 단어 조회",
+    description="""
+    학습 중인 언어에서 랜덤으로 단어를 조회합니다.
+
+    **옵션:**
+    - `language`: 특정 언어로 제한 (언어 코드)
+    - `category`: 특정 카테고리로 제한
+    - `count`: 반환할 단어 수 (기본: 1, 최대: 10)
+    """,
+    parameters=[
+        OpenApiParameter(name='language', description='언어 코드', required=False, type=str),
+        OpenApiParameter(name='category', description='카테고리', required=False, type=str),
+        OpenApiParameter(name='count', description='단어 수 (1-10)', required=False, type=int),
+    ],
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def word_browse_random(request):
+    """랜덤 단어 조회"""
+    from .serializers import WordBrowseSerializer
+    from accounts.models import Language
+
+    user = request.user
+    user_profile = getattr(user, 'profile', None)
+
+    if not user_profile:
+        return APIResponse.error(
+            message='프로필이 설정되지 않았습니다.',
+            error_code=ErrorCode.NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    # 사용자의 학습 언어 목록
+    learning_language_ids = list(user_profile.learning_languages.values_list('id', flat=True))
+
+    if not learning_language_ids:
+        return APIResponse.error(
+            message='학습 중인 언어가 없습니다.',
+            error_code=ErrorCode.NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    # 사용자의 모국어 조회
+    COUNTRY_TO_LANGUAGE = {
+        'KR': 'ko', 'JP': 'ja', 'US': 'en', 'GB': 'en', 'ES': 'es', 'CN': 'zh',
+    }
+    native_language = None
+    if user_profile.country:
+        lang_code = COUNTRY_TO_LANGUAGE.get(user_profile.country.code)
+        if lang_code:
+            native_language = Language.objects.filter(code=lang_code).first()
+    if not native_language:
+        native_language = Language.objects.filter(code='ko').first()
+
+    # 기본 쿼리 (학습 중인 언어의 단어, 기본 category=word)
+    queryset = Word.objects.filter(
+        language_id__in=learning_language_ids,
+        category=WordCategory.WORD,
+        is_active=True
+    ).select_related('language').prefetch_related(
+        'translations__language', 'examples__translations__language'
+    )
+
+    # 언어 필터
+    language_code = request.query_params.get('language')
+    if language_code:
+        queryset = queryset.filter(language__code=language_code)
+
+    # 카테고리 필터
+    category = request.query_params.get('category')
+    if category:
+        queryset = Word.objects.filter(
+            language_id__in=learning_language_ids,
+            category=category,
+            is_active=True
+        ).select_related('language').prefetch_related(
+            'translations__language', 'examples__translations__language'
+        )
+        if language_code:
+            queryset = queryset.filter(language__code=language_code)
+
+    # 단어 수
+    count = min(int(request.query_params.get('count', 1)), 10)
+
+    # 랜덤 선택
+    word_ids = list(queryset.values_list('id', flat=True))
+    if not word_ids:
+        return APIResponse.error(
+            message='조건에 맞는 단어가 없습니다.',
+            error_code=ErrorCode.NOT_FOUND,
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+    selected_count = min(count, len(word_ids))
+    random_ids = random.sample(word_ids, selected_count)
+
+    # 선택된 단어 조회
+    words = Word.objects.filter(id__in=random_ids).select_related('language').prefetch_related(
+        'translations__language', 'examples__translations__language'
+    )
+
+    serializer_context = {'native_language_id': native_language.id if native_language else None}
+    serializer = WordBrowseSerializer(words, many=True, context=serializer_context)
+
+    return APIResponse.success(
+        message='Random words retrieved',
+        data={
+            'words': serializer.data,
+            'count': len(serializer.data)
+        }
+    )
