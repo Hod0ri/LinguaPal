@@ -156,6 +156,7 @@ function ActivityItem({ activity }: { activity: DashboardRealtime['recent_activi
     failed: 'bg-rose-100 text-rose-600',
     abandoned: 'bg-amber-100 text-amber-600',
     terminated: 'bg-slate-100 text-slate-500',
+    progressed: 'bg-indigo-100 text-indigo-600',
   }
 
   const verbLabels: Record<string, string> = {
@@ -166,6 +167,7 @@ function ActivityItem({ activity }: { activity: DashboardRealtime['recent_activi
     failed: '불합격',
     abandoned: '중단',
     terminated: '종료',
+    progressed: '학습 진행',
   }
 
   const verbDisplay = activity.verb.display || activity.verb.id.split('/').pop() || 'unknown'
@@ -369,10 +371,14 @@ const getLocalizedQuizType = (type?: string) => {
     'gana_to_romaji': '가나 -> 로마자',
     'romaji_to_gana_select': '로마자 -> 가나 (선택)',
     'romaji_to_gana_input': '로마자 -> 가나 (입력)',
-    'word_to_native': '단어 -> 모국어 (선택)',
+    'word_to_native': '단어 -> 모국어',
     'native_to_word_select': '모국어 -> 단어 (선택)',
     'native_to_word_input': '모국어 -> 단어 (입력)',
-    'flashcard': '플래시카드'
+    'example_fill_in_blank': '예문 빈칸 채우기',
+    'mixed': '혼합 문제',
+    'flashcard': '학습하기',
+    'progressed': '학습 진행',
+    '일반 학습': '일반 학습'
   }
   // 이미 한글이면 그대로 반환 (flashcard에서 직접 '일반 학습' 저장)
   return map[type] || type;
@@ -382,7 +388,7 @@ const getLocalizedCategory = (cat: string) => {
   const map: Record<string, string> = {
     'gana': '가나',
     'word': '단어',
-    'flashcard': '플래시카드'
+    'flashcard': '학습하기'
   }
   return map[cat] || cat;
 }
@@ -903,7 +909,7 @@ export default function AdminDashboardPage() {
                 color="purple"
               />
               <StatCard
-                title="플래시카드"
+                title="학습하기"
                 value={(categoryData['flashcard'] || { completed: 0 }).completed}
                 subtitle={`완료 ${(categoryData['flashcard'] || { completed: 0 }).completed}건`}
                 icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>}
@@ -1021,7 +1027,7 @@ export default function AdminDashboardPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-amber-500" />
-                          <span className="text-sm text-slate-600">플래시카드 ({flashcardCompleted})</span>
+                          <span className="text-sm text-slate-600">학습하기 ({flashcardCompleted})</span>
                         </div>
                       </div>
                     </div>
@@ -1036,7 +1042,7 @@ export default function AdminDashboardPage() {
                   {[
                     { label: '가나 퀴즈', completed: ganaStats.completed, passed: ganaStats.passed, color: 'indigo' },
                     { label: '단어 퀴즈', completed: wordStats.completed, passed: wordStats.passed, color: 'purple' },
-                    { label: '플래시카드', completed: (categoryData['flashcard'] || { completed: 0 }).completed, passed: (categoryData['flashcard'] || { passed: 0 }).passed, color: 'amber' },
+                    { label: '학습하기', completed: (categoryData['flashcard'] || { completed: 0 }).completed, passed: (categoryData['flashcard'] || { passed: 0 }).passed, color: 'amber' },
                   ].map((item) => (
                     <div key={item.label} className="space-y-1">
                       <div className="flex justify-between text-sm">
@@ -1091,7 +1097,7 @@ export default function AdminDashboardPage() {
                   {[
                     { label: '가나 퀴즈', accuracy: ganaStats.accuracy, icon: 'あ', color: 'indigo' },
                     { label: '단어 퀴즈', accuracy: wordStats.accuracy, icon: 'A', color: 'purple' },
-                    { label: '플래시카드', accuracy: (categoryData['flashcard'] || { accuracy: 0 }).accuracy || 0, icon: '📚', color: 'amber' },
+                    { label: '학습하기', accuracy: (categoryData['flashcard'] || { accuracy: 0 }).accuracy || 0, icon: '📚', color: 'amber' },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center gap-4">
                       <div className={`w-10 h-10 bg-${item.color}-100 rounded-xl flex items-center justify-center`}>

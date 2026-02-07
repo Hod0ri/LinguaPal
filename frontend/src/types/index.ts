@@ -157,7 +157,7 @@ export interface QuizStats {
 }
 
 // ============= Word Quiz Types =============
-export type WordQuizType = 'word_to_native' | 'native_to_word_select' | 'native_to_word_input'
+export type WordQuizType = 'word_to_native' | 'native_to_word_select' | 'native_to_word_input' | 'example_fill_in_blank' | 'mixed'
 export type WordQuizQuestionCount = '10' | '25' | '0'
 
 export interface WordQuizQuestion {
@@ -212,6 +212,7 @@ export interface WordQuizStartRequest {
   quiz_type: WordQuizType
   question_count: WordQuizQuestionCount
   vocabulary_id?: number | null
+  learned_words_only?: boolean
 }
 
 export interface WordQuizStartResponse {
@@ -326,15 +327,14 @@ export interface FlashcardCurrentResponse {
 
 export interface FlashcardAnswerRequest {
   record_id: number
-  is_known: boolean
 }
 
 export interface FlashcardAnswerResponse {
   record: FlashcardRecord
   next_card: FlashcardRecord | null
   session_completed: boolean
-  known_count: number
-  unknown_count: number
+  known_count?: number  // Deprecated: no longer used
+  unknown_count?: number  // Deprecated: no longer used
 }
 
 // Re-export xAPI types

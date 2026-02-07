@@ -15,6 +15,7 @@ import WordQuizDashboardPage from './pages/WordQuizDashboardPage'
 import FlashcardPage from './pages/FlashcardPage'
 import WordBrowsePage from './pages/WordBrowsePage'
 import VocabularyPage from './pages/VocabularyPage'
+import LearnedWordsPage from './pages/LearnedWordsPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminPoliciesPage from './pages/AdminPoliciesPage'
 import WordManagementPage from './pages/WordManagementPage'
@@ -128,6 +129,14 @@ function App() {
         element={
           <ProtectedRoute>
             <VocabularyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/learned-words"
+        element={
+          <ProtectedRoute>
+            <LearnedWordsPage />
           </ProtectedRoute>
         }
       />

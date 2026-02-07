@@ -439,6 +439,8 @@ class WordQuizType(models.TextChoices):
     WORD_TO_NATIVE = 'word_to_native', '단어 → 모국어'
     NATIVE_TO_WORD_SELECT = 'native_to_word_select', '모국어 → 단어 (선택)'
     NATIVE_TO_WORD_INPUT = 'native_to_word_input', '모국어 → 단어 (입력)'
+    EXAMPLE_FILL_IN_BLANK = 'example_fill_in_blank', '예문 빈칸 채우기'
+    MIXED = 'mixed', '혼합 문제'
 
 
 class WordQuizQuestionCount(models.IntegerChoices):
@@ -577,12 +579,23 @@ class WordQuizQuestion(models.Model):
 
     def get_correct_answer(self, native_language):
         """정답 반환 (퀴즈 유형에 따라)"""
-        if self.quiz.quiz_type == WordQuizType.WORD_TO_NATIVE:
+        quiz_type = self.quiz.quiz_type
+
+        # 혼합 퀴즈인 경우 타입 판단
+        if quiz_type == WordQuizType.MIXED:
+            if self.word.examples.exists():
+                quiz_type = WordQuizType.EXAMPLE_FILL_IN_BLANK
+            elif self.choices:
+                quiz_type = WordQuizType.NATIVE_TO_WORD_SELECT
+            else:
+                quiz_type = WordQuizType.WORD_TO_NATIVE  # 기본값
+
+        if quiz_type == WordQuizType.WORD_TO_NATIVE:
             # 단어 보고 모국어 뜻 입력 -> 정답은 번역
             translation = self.word.translations.filter(language=native_language).first()
             return translation.translated_text if translation else ''
         else:
-            # 모국어 보고 단어 입력/선택 -> 정답은 단어 텍스트
+            # 모국어 보고 단어 입력/선택, 예문 빈칸 채우기 -> 정답은 단어 텍스트
             return self.word.text
 
 

@@ -1036,6 +1036,32 @@ def generate_word_choices(correct_word, all_words, quiz_type, native_language):
     return choices
 
 
+def generate_example_fill_choices(correct_word, all_words):
+    """예문 빈칸 채우기 선택지 생성"""
+    # 정답 단어 추가
+    choices = [correct_word.text]
+
+    # 다른 단어들 중 랜덤하게 2개 선택
+    other_words = list(all_words.exclude(id=correct_word.id))
+    if len(other_words) >= 2:
+        wrong_choices = random.sample(other_words, 2)
+        choices.extend([w.text for w in wrong_choices])
+
+    random.shuffle(choices)
+    return choices
+
+
+def get_random_quiz_type():
+    """혼합 퀴즈를 위한 랜덤 타입 선택"""
+    types = [
+        WordQuizType.WORD_TO_NATIVE,
+        WordQuizType.NATIVE_TO_WORD_SELECT,
+        WordQuizType.NATIVE_TO_WORD_INPUT,
+        WordQuizType.EXAMPLE_FILL_IN_BLANK,
+    ]
+    return random.choice(types)
+
+
 @extend_schema(
     tags=['단어 퀴즈'],
     summary="단어 퀴즈 시작",
@@ -1122,10 +1148,36 @@ def word_quiz_start(request):
         vocabulary_word_ids = vocabulary.words.values_list('id', flat=True)
         all_words = all_words.filter(id__in=vocabulary_word_ids)
 
+    # 배운 단어만 퀴즈에 포함하는 경우
+    learned_words_only = serializer.validated_data.get('learned_words_only', False)
+    if learned_words_only:
+        # 학습하기에서 본 단어 ID 조회 (viewed_at이 null이 아닌 FlashcardRecord)
+        learned_word_ids = set(
+            FlashcardRecord.objects.filter(
+                session__user=request.user,
+                session__learning_language=learning_language,
+                viewed_at__isnull=False
+            ).values_list('word_id', flat=True).distinct()
+        )
+
+        if not learned_word_ids:
+            return APIResponse.error(
+                message='학습한 단어가 없습니다. 먼저 학습하기를 진행해주세요.',
+                error_code=ErrorCode.NOT_FOUND,
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        all_words = all_words.filter(id__in=learned_word_ids)
+
     word_list = list(all_words)
 
     if not word_list:
-        error_message = '해당 단어장에 단어가 없습니다.' if vocabulary_id else '해당 언어에 대한 단어가 없습니다.'
+        if learned_words_only:
+            error_message = '학습한 단어가 부족합니다. 먼저 학습하기를 진행해주세요.'
+        elif vocabulary_id:
+            error_message = '해당 단어장에 단어가 없습니다.'
+        else:
+            error_message = '해당 언어에 대한 단어가 없습니다.'
         return APIResponse.error(
             message=error_message,
             error_code=ErrorCode.NOT_FOUND,
@@ -1138,8 +1190,75 @@ def word_quiz_start(request):
     else:
         total_questions = min(question_count_setting, len(word_list))
 
-    # 문제 선택 (랜덤)
-    selected_words = random.sample(word_list, total_questions)
+    # 문제 선택
+    if learned_words_only:
+        # 스마트 선택: 오답률 높은 것, 최근에 배운 것, 퀴즈에 나온 지 오래된 것 우선
+        from datetime import timedelta
+        now = timezone.now()
+
+        # 각 단어의 우선순위 점수 계산
+        word_priorities = []
+        for word in word_list:
+            # 1. 오답률 계산
+            quiz_stats = WordQuizQuestion.objects.filter(
+                quiz__user=request.user,
+                word=word
+            ).aggregate(
+                total=Count('id'),
+                incorrect=Count('id', filter=Q(is_correct=False))
+            )
+            total_attempts = quiz_stats['total'] or 0
+            incorrect_count = quiz_stats['incorrect'] or 0
+            error_rate = incorrect_count / total_attempts if total_attempts > 0 else 0.5  # 처음 보는 단어는 중간값
+
+            # 2. 최근 학습 시간
+            recent_flashcard = FlashcardRecord.objects.filter(
+                session__user=request.user,
+                word=word,
+                viewed_at__isnull=False
+            ).order_by('-viewed_at').first()
+
+            if recent_flashcard and recent_flashcard.viewed_at:
+                days_since_learned = (now - recent_flashcard.viewed_at).days
+                # 최근 7일 이내면 높은 점수, 그 이후는 점수 감소
+                recency_score = max(0, 1.0 - (days_since_learned / 30.0))  # 30일 기준
+            else:
+                recency_score = 0.5
+
+            # 3. 마지막 퀴즈 시간
+            last_quiz = WordQuizQuestion.objects.filter(
+                quiz__user=request.user,
+                word=word,
+                answered_at__isnull=False
+            ).order_by('-answered_at').first()
+
+            if last_quiz and last_quiz.answered_at:
+                days_since_quiz = (now - last_quiz.answered_at).days
+                # 오래될수록 높은 점수
+                staleness_score = min(1.0, days_since_quiz / 7.0)  # 7일 기준
+            else:
+                staleness_score = 1.0  # 퀴즈에 안 나온 단어는 최대 점수
+
+            # 종합 우선순위 점수 (가중치 적용)
+            priority_score = (
+                error_rate * 0.4 +        # 오답률 40%
+                recency_score * 0.3 +     # 최근 학습 30%
+                staleness_score * 0.3     # 오래된 정도 30%
+            )
+
+            word_priorities.append((word, priority_score))
+
+        # 우선순위 점수로 정렬
+        word_priorities.sort(key=lambda x: x[1], reverse=True)
+
+        # 상위 단어 선택 (일부 랜덤성 추가)
+        # 상위 50%에서 필요한 만큼 랜덤 선택
+        top_half_count = max(total_questions, len(word_priorities) // 2)
+        top_candidates = [w for w, _ in word_priorities[:top_half_count]]
+        selected_words = random.sample(top_candidates, min(total_questions, len(top_candidates)))
+    else:
+        # 일반 퀴즈는 랜덤 선택
+        selected_words = random.sample(word_list, total_questions)
 
     # 퀴즈 세션 생성
     quiz = WordQuiz.objects.create(
@@ -1154,8 +1273,17 @@ def word_quiz_start(request):
     # 문제 생성
     for i, word in enumerate(selected_words, 1):
         choices = []
-        if quiz_type == WordQuizType.NATIVE_TO_WORD_SELECT:
-            choices = generate_word_choices(word, all_words, quiz_type, native_language)
+        current_type = quiz_type
+
+        # 혼합 퀴즈인 경우 문제마다 랜덤 타입 선택
+        if quiz_type == WordQuizType.MIXED:
+            current_type = get_random_quiz_type()
+
+        # 타입에 따라 선택지 생성
+        if current_type == WordQuizType.NATIVE_TO_WORD_SELECT:
+            choices = generate_word_choices(word, all_words, current_type, native_language)
+        elif current_type == WordQuizType.EXAMPLE_FILL_IN_BLANK:
+            choices = generate_example_fill_choices(word, all_words)
 
         WordQuizQuestion.objects.create(
             quiz=quiz,
@@ -1573,12 +1701,10 @@ def flashcard_start(request):
     if native_language:
         words_qs = words_qs.filter(translations__language=native_language).distinct()
 
-    # 랜덤 선택
-    word_ids = list(words_qs.values_list('id', flat=True))
-    if len(word_ids) < card_count:
-        card_count = len(word_ids)
+    # 스마트 단어 선택 알고리즘 (1/3 복습 + 2/3 새 단어)
+    all_word_ids = set(words_qs.values_list('id', flat=True))
 
-    if card_count == 0:
+    if len(all_word_ids) == 0:
         error_message = '해당 단어장에 단어가 없습니다.' if vocabulary_id else '해당 언어에 학습할 단어가 없습니다.'
         return APIResponse.error(
             message='No words available',
@@ -1586,7 +1712,74 @@ def flashcard_start(request):
             error_code=ErrorCode.NOT_FOUND
         )
 
-    selected_ids = random.sample(word_ids, card_count)
+    # 실제 카드 수 조정
+    if len(all_word_ids) < card_count:
+        card_count = len(all_word_ids)
+
+    # 1. 이미 본 단어 찾기 (FlashcardRecord에 기록된 단어)
+    viewed_word_ids = set(
+        FlashcardRecord.objects.filter(
+            session__user=user,
+            session__learning_language_id=learning_language_id,
+            viewed_at__isnull=False
+        ).values_list('word_id', flat=True).distinct()
+    )
+
+    # 2. 퀴즈에서 틀린 단어 찾기 (최근 30일 내)
+    from django.utils import timezone
+    from datetime import timedelta
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+
+    incorrect_word_ids = set(
+        WordQuizQuestion.objects.filter(
+            quiz__user=user,
+            quiz__learning_language_id=learning_language_id,
+            quiz__started_at__gte=thirty_days_ago,
+            is_correct=False
+        ).values_list('word_id', flat=True).distinct()
+    )
+
+    # 3. 복습할 단어와 새 단어 구분
+    review_candidates = (viewed_word_ids | incorrect_word_ids) & all_word_ids  # 교집합
+    new_candidates = all_word_ids - review_candidates  # 차집합
+
+    # 4. 복습 단어 선택 (1/3, 틀린 단어 우선)
+    review_count = max(1, card_count // 3)  # 최소 1개
+    review_word_ids = []
+
+    # 틀린 단어 우선 선택
+    incorrect_available = list(incorrect_word_ids & all_word_ids)
+    if incorrect_available:
+        take_count = min(len(incorrect_available), review_count)
+        review_word_ids.extend(random.sample(incorrect_available, take_count))
+
+    # 부족하면 다른 복습 단어로 채우기
+    if len(review_word_ids) < review_count:
+        remaining_review = list(review_candidates - set(review_word_ids))
+        if remaining_review:
+            need_count = min(len(remaining_review), review_count - len(review_word_ids))
+            review_word_ids.extend(random.sample(remaining_review, need_count))
+
+    # 5. 새 단어 선택 (나머지)
+    new_count = card_count - len(review_word_ids)
+    new_word_ids = []
+
+    if new_count > 0 and new_candidates:
+        take_count = min(len(new_candidates), new_count)
+        new_word_ids = random.sample(list(new_candidates), take_count)
+
+    # 6. 만약 새 단어가 부족하면 복습 단어로 채우기
+    if len(review_word_ids) + len(new_word_ids) < card_count:
+        remaining = card_count - len(review_word_ids) - len(new_word_ids)
+        available = list((review_candidates - set(review_word_ids)) | (new_candidates - set(new_word_ids)))
+        if available:
+            additional = random.sample(available, min(len(available), remaining))
+            new_word_ids.extend(additional)
+
+    # 7. 최종 선택된 단어들 (순서 섞기)
+    selected_ids = review_word_ids + new_word_ids
+    random.shuffle(selected_ids)
+
     selected_words = Word.objects.filter(id__in=selected_ids).prefetch_related(
         'translations', 'examples__translations'
     )
@@ -1732,7 +1925,7 @@ def flashcard_current(request, session_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def flashcard_answer(request, session_id):
-    """플래시카드 응답 제출"""
+    """플래시카드 다음 카드로 이동 (viewed 기록)"""
     session = get_object_or_404(FlashcardSession, id=session_id, user=request.user)
 
     if session.is_completed:
@@ -1750,7 +1943,6 @@ def flashcard_answer(request, session_id):
         )
 
     record_id = serializer.validated_data['record_id']
-    is_known = serializer.validated_data['is_known']
 
     # 사용자 모국어 조회
     user = request.user
@@ -1762,22 +1954,18 @@ def flashcard_answer(request, session_id):
         session=session
     )
 
-    if record.is_known is not None:
+    if record.viewed_at is not None:
         return APIResponse.error(
-            message='Already answered',
+            message='Already viewed',
             error_code=ErrorCode.VALIDATION_ERROR
         )
 
-    # 응답 기록
-    record.is_known = is_known
+    # 학습 기록 (viewed만 기록)
+    record.viewed_at = timezone.now()
     record.answered_at = timezone.now()
     record.save()
 
     # 세션 업데이트
-    if is_known:
-        session.known_count += 1
-    else:
-        session.unknown_count += 1
     session.current_index += 1
 
     # xAPI Statement: ANSWERED
@@ -1790,12 +1978,11 @@ def flashcard_answer(request, session_id):
 
     queue_statement_task({
         'actor_user_id': request.user.id,
-        'verb': 'answered',
+        'verb': 'progressed',
         'object_type': 'flashcard',
         'object_id': f'flashcard/session/{session.id}/card/{record.id}',
         'result': {
-            'success': is_known,
-            'response': 'known' if is_known else 'unknown',
+            'response': 'viewed',
         },
         'context': {
             'category': 'flashcard',
@@ -1817,15 +2004,13 @@ def flashcard_answer(request, session_id):
         session.completed_at = timezone.now()
 
         # xAPI Statement: COMPLETED
-        known_rate = (session.known_count / session.total_cards) * 100 if session.total_cards > 0 else 0
         queue_statement_task({
             'actor_user_id': request.user.id,
             'verb': 'completed',
             'object_type': 'flashcard',
             'object_id': f'flashcard/session/{session.id}',
             'result': {
-                'score_scaled': known_rate / 100,
-                'score_raw': session.known_count,
+                'score_raw': session.total_cards,
                 'score_max': session.total_cards,
                 'completion': True,
             },
@@ -1835,8 +2020,6 @@ def flashcard_answer(request, session_id):
                 'quiz_type': '일반 학습',
                 'session_id': session.id,
                 'total_cards': session.total_cards,
-                'known_count': session.known_count,
-                'unknown_count': session.unknown_count,
                 'language_code': session.learning_language.code,
                 'language_name': session.learning_language.name_ko,
             }
@@ -2657,4 +2840,58 @@ def get_word_vocabularies(request, word_id):
     return APIResponse.success(
         message='Vocabularies containing this word retrieved',
         data={'vocabularies': serializer.data}
+    )
+
+
+@extend_schema(
+    summary='학습한 단어 목록 조회',
+    description='학습하기에서 본 단어들을 조회합니다. (FlashcardRecord의 viewed_at이 null이 아닌 단어들)',
+    parameters=[
+        OpenApiParameter(
+            name='learning_language',
+            type=str,
+            location=OpenApiParameter.QUERY,
+            description='학습 언어 코드 (예: es, ja)',
+            required=False
+        )
+    ],
+    responses={200: WordListSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_learned_words(request):
+    """학습한 단어 목록 조회"""
+    learning_language_code = request.query_params.get('learning_language')
+
+    # FlashcardRecord에서 viewed_at이 null이 아닌 단어 ID 조회
+    query = FlashcardRecord.objects.filter(
+        session__user=request.user,
+        viewed_at__isnull=False
+    )
+
+    # 언어 필터링
+    if learning_language_code:
+        query = query.filter(session__learning_language__code=learning_language_code)
+
+    # 중복 제거된 단어 ID 목록
+    learned_word_ids = query.values_list('word_id', flat=True).distinct()
+
+    # 단어 조회
+    words = Word.objects.filter(
+        id__in=learned_word_ids
+    ).select_related(
+        'language'
+    ).prefetch_related(
+        'translations__language',
+        'examples__translations__language'
+    ).order_by('-updated_at')
+
+    serializer = WordSerializer(words, many=True, context={'request': request})
+
+    return APIResponse.success(
+        message='Learned words retrieved successfully',
+        data={
+            'words': serializer.data,
+            'count': words.count()
+        }
     )

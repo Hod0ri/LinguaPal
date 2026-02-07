@@ -83,9 +83,7 @@ export default function FlashcardPage() {
   const [error, setError] = useState<string | null>(null)
   const [isCardTransitioning, setIsCardTransitioning] = useState(false)
 
-  // Result state
-  const [knownCount, setKnownCount] = useState(0)
-  const [unknownCount, setUnknownCount] = useState(0)
+  // Result state (단순 완료 표시용)
 
   // Set default language when profile loads
   useEffect(() => {
@@ -141,7 +139,7 @@ export default function FlashcardPage() {
     setIsFlipped((prev) => !prev)
   }, [])
 
-  const handleAnswer = async (isKnown: boolean) => {
+  const handleNext = async () => {
     if (!session || !currentCard || isCardTransitioning) return
 
     setIsLoading(true)
@@ -149,13 +147,11 @@ export default function FlashcardPage() {
     try {
       const response = await flashcardApi.answer(session.id, {
         record_id: currentCard.id,
-        is_known: isKnown,
       })
 
       if (response.data.success) {
         const data = response.data.data
-        setKnownCount(data.known_count)
-        setUnknownCount(data.unknown_count)
+        // viewed 기록만 남김 (known_count, unknown_count 제거)
 
         if (data.session_completed) {
           setViewState('result')
@@ -215,12 +211,9 @@ export default function FlashcardPage() {
           handleFlip()
         }
       } else if (isFlipped) {
-        if (e.key === 'ArrowLeft' || e.key === 'x' || e.key === 'X') {
+        if (e.key === 'ArrowRight' || e.key === 'n' || e.key === 'N' || e.key === 'Enter') {
           e.preventDefault()
-          handleAnswer(false)
-        } else if (e.key === 'ArrowRight' || e.key === 'o' || e.key === 'O') {
-          e.preventDefault()
-          handleAnswer(true)
+          handleNext()
         }
       }
     }
@@ -247,7 +240,7 @@ export default function FlashcardPage() {
     <div className="max-w-md mx-auto">
       <div className="bg-white rounded-2xl shadow-lg p-8">
         <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">
-          플래시카드 학습
+          학습하기
         </h2>
 
         {error && (
@@ -341,9 +334,8 @@ export default function FlashcardPage() {
       <div className="mt-6 bg-slate-50 rounded-xl p-4 text-sm text-slate-600">
         <p className="font-medium mb-2">키보드 단축키</p>
         <ul className="space-y-1">
-          <li><kbd className="px-2 py-1 bg-white rounded border">Space</kbd> / <kbd className="px-2 py-1 bg-white rounded border">Enter</kbd> - 카드 뒤집기</li>
-          <li><kbd className="px-2 py-1 bg-white rounded border">←</kbd> / <kbd className="px-2 py-1 bg-white rounded border">X</kbd> - 모르겠어요</li>
-          <li><kbd className="px-2 py-1 bg-white rounded border">→</kbd> / <kbd className="px-2 py-1 bg-white rounded border">O</kbd> - 알아요</li>
+          <li><kbd className="px-2 py-1 bg-white rounded border">Space</kbd> - 카드 뒤집기</li>
+          <li><kbd className="px-2 py-1 bg-white rounded border">→</kbd> / <kbd className="px-2 py-1 bg-white rounded border">Enter</kbd> / <kbd className="px-2 py-1 bg-white rounded border">N</kbd> - 다음 카드</li>
         </ul>
       </div>
     </div>
@@ -352,19 +344,16 @@ export default function FlashcardPage() {
   const renderLearning = () => {
     if (!session || !currentCard) return null
 
-    const progress = ((knownCount + unknownCount) / session.total_cards) * 100
+    const currentIndex = session.current_index + 1
+    const progress = (currentIndex / session.total_cards) * 100
 
     return (
       <div className="max-w-2xl mx-auto">
         {/* Progress Bar */}
         <div className="mb-6">
           <div className="flex justify-between text-sm text-slate-600 mb-2">
-            <span>{knownCount + unknownCount + 1} / {session.total_cards}</span>
-            <span>
-              <span className="text-green-600">알아요: {knownCount}</span>
-              {' | '}
-              <span className="text-red-600">몰라요: {unknownCount}</span>
-            </span>
+            <span className="font-medium">{currentIndex} / {session.total_cards}</span>
+            <span className="text-indigo-600">학습 중</span>
           </div>
           <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
             <div
@@ -475,34 +464,40 @@ export default function FlashcardPage() {
           </div>
         </div>
 
-        {/* Answer Buttons */}
-        <div className="mt-8 flex gap-4">
+        {/* Next Button */}
+        <div className="mt-8">
           <button
-            onClick={() => handleAnswer(false)}
+            onClick={handleNext}
             disabled={!isFlipped || isLoading}
-            className="flex-1 py-4 bg-red-500 text-white rounded-xl font-semibold text-lg hover:bg-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-4 bg-indigo-600 text-white rounded-xl font-semibold text-lg hover:bg-indigo-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            모르겠어요
-          </button>
-          <button
-            onClick={() => handleAnswer(true)}
-            disabled={!isFlipped || isLoading}
-            className="flex-1 py-4 bg-green-500 text-white rounded-xl font-semibold text-lg hover:bg-green-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            알아요
+            {isLoading ? (
+              <>
+                <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                처리 중...
+              </>
+            ) : (
+              <>
+                다음 카드
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </>
+            )}
           </button>
         </div>
 
         {/* Help Text */}
-        {!isFlipped && (
+        {!isFlipped ? (
           <p className="text-center text-slate-500 mt-4">
             카드를 클릭하거나 Space 키를 눌러 뒤집으세요
+          </p>
+        ) : (
+          <p className="text-center text-slate-500 mt-4">
+            다음 카드를 보려면 버튼을 클릭하거나 Enter 키를 누르세요
           </p>
         )}
       </div>
@@ -510,8 +505,7 @@ export default function FlashcardPage() {
   }
 
   const renderResult = () => {
-    const total = knownCount + unknownCount
-    const knownPercentage = total > 0 ? Math.round((knownCount / total) * 100) : 0
+    const total = session?.total_cards || 0
 
     return (
       <div className="max-w-md mx-auto">
@@ -530,52 +524,10 @@ export default function FlashcardPage() {
           </p>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="bg-slate-50 rounded-xl p-4">
-              <div className="text-3xl font-bold text-slate-800">{total}</div>
-              <div className="text-sm text-slate-500">총 카드</div>
-            </div>
-            <div className="bg-green-50 rounded-xl p-4">
-              <div className="text-3xl font-bold text-green-600">{knownCount}</div>
-              <div className="text-sm text-green-600">알아요</div>
-            </div>
-            <div className="bg-red-50 rounded-xl p-4">
-              <div className="text-3xl font-bold text-red-600">{unknownCount}</div>
-              <div className="text-sm text-red-600">몰라요</div>
-            </div>
-          </div>
-
-          {/* Progress Circle */}
-          <div className="relative w-32 h-32 mx-auto mb-8">
-            <svg className="w-full h-full -rotate-90">
-              <circle
-                cx="64"
-                cy="64"
-                r="56"
-                fill="none"
-                stroke="#e2e8f0"
-                strokeWidth="12"
-              />
-              <circle
-                cx="64"
-                cy="64"
-                r="56"
-                fill="none"
-                stroke="url(#gradient)"
-                strokeWidth="12"
-                strokeLinecap="round"
-                strokeDasharray={`${knownPercentage * 3.52} 352`}
-              />
-              <defs>
-                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#6366f1" />
-                  <stop offset="100%" stopColor="#a855f7" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold text-slate-800">{knownPercentage}%</span>
-              <span className="text-sm text-slate-500">숙지율</span>
+          <div className="mb-8">
+            <div className="bg-indigo-50 rounded-xl p-6">
+              <div className="text-5xl font-bold text-indigo-600 mb-2">{total}</div>
+              <div className="text-lg text-indigo-700">단어 학습 완료</div>
             </div>
           </div>
 

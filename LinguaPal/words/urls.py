@@ -55,6 +55,8 @@ from .views import (
     add_word_to_vocabulary,
     remove_word_from_vocabulary,
     get_word_vocabularies,
+    # Learned Words (학습한 단어)
+    get_learned_words,
 )
 
 app_name = 'words'
@@ -134,4 +136,7 @@ urlpatterns = [
     path('vocabularies/<int:vocabulary_id>/words/add', add_word_to_vocabulary, name='add_word_to_vocabulary'),
     path('vocabularies/<int:vocabulary_id>/words/<int:word_id>/remove', remove_word_from_vocabulary, name='remove_word_from_vocabulary'),
     path('words/<int:word_id>/vocabularies', get_word_vocabularies, name='get_word_vocabularies'),
+
+    # Learned Words (학습한 단어)
+    path('words/learned', get_learned_words, name='get_learned_words'),
 ]
