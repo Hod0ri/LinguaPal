@@ -382,6 +382,11 @@ class WordQuizStartRequestSerializer(serializers.Serializer):
         allow_null=True,
         help_text='단어장 ID (선택사항, 특정 단어장의 단어만 퀴즈에 포함)'
     )
+    learned_words_only = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text='배운 단어만 퀴즈에 포함 (학습하기에서 본 단어들)'
+    )
 
     def validate_learning_language(self, value):
         try:
@@ -410,10 +415,35 @@ class WordQuizQuestionSerializer(serializers.ModelSerializer):
 
     def get_question(self, obj):
         """문제 내용 반환 (퀴즈 유형에 따라)"""
-        if obj.quiz.quiz_type == WordQuizType.WORD_TO_NATIVE:
-            return obj.word.text  # 외국어 단어 보여주기
+        quiz_type = obj.quiz.quiz_type
+
+        # 혼합 퀴즈인 경우, choices 유무로 타입 판단 (WordQuizQuestionCurrentSerializer와 동일 로직)
+        if quiz_type == WordQuizType.MIXED:
+            if obj.word.examples.exists():
+                quiz_type = WordQuizType.EXAMPLE_FILL_IN_BLANK
+            elif obj.choices:
+                quiz_type = WordQuizType.NATIVE_TO_WORD_SELECT
+            else:
+                import random
+                quiz_type = random.choice([WordQuizType.WORD_TO_NATIVE, WordQuizType.NATIVE_TO_WORD_INPUT])
+
+        if quiz_type == WordQuizType.WORD_TO_NATIVE:
+            return obj.word.text
+        elif quiz_type == WordQuizType.EXAMPLE_FILL_IN_BLANK:
+            example = obj.word.examples.first()
+            if example:
+                # highlight_indices를 사용하여 정확한 위치의 단어를 빈칸으로 치환
+                sentence = example.sentence
+                if example.highlight_indices and len(example.highlight_indices) >= 2:
+                    start, end = example.highlight_indices[0], example.highlight_indices[1]
+                    # 해당 부분을 ___로 치환
+                    sentence = sentence[:start] + '___' + sentence[end:]
+
+                translation = example.translations.filter(language=obj.quiz.native_language).first()
+                trans_text = translation.translated_sentence if translation else ''
+                return f"Example: {sentence}\nTranslation: {trans_text}"
+            return obj.word.text
         else:
-            # 모국어 뜻 보여주기
             translation = obj.word.translations.filter(language=obj.quiz.native_language).first()
             return translation.translated_text if translation else obj.word.text
 
@@ -433,9 +463,44 @@ class WordQuizQuestionCurrentSerializer(serializers.ModelSerializer):
         fields = ['id', 'question_number', 'question', 'choices']
 
     def get_question(self, obj):
-        if obj.quiz.quiz_type == WordQuizType.WORD_TO_NATIVE:
+        quiz_type = obj.quiz.quiz_type
+
+        # 혼합 퀴즈인 경우, choices 유무로 타입 판단
+        if quiz_type == WordQuizType.MIXED:
+            # choices가 있으면 선택형, 없으면 입력형
+            # 예문이 있으면 예문 빈칸 채우기로 간주
+            if obj.word.examples.exists():
+                quiz_type = WordQuizType.EXAMPLE_FILL_IN_BLANK
+            elif obj.choices:
+                quiz_type = WordQuizType.NATIVE_TO_WORD_SELECT
+            else:
+                # 랜덤하게 word_to_native 또는 native_to_word_input 중 선택
+                import random
+                quiz_type = random.choice([WordQuizType.WORD_TO_NATIVE, WordQuizType.NATIVE_TO_WORD_INPUT])
+
+        if quiz_type == WordQuizType.WORD_TO_NATIVE:
+            return obj.word.text
+        elif quiz_type == WordQuizType.EXAMPLE_FILL_IN_BLANK:
+            # 예문 빈칸 채우기 형식
+            example = obj.word.examples.first()
+            if example:
+                # highlight_indices를 사용하여 정확한 위치의 단어를 빈칸으로 치환
+                sentence = example.sentence
+                if example.highlight_indices and len(example.highlight_indices) >= 2:
+                    start, end = example.highlight_indices[0], example.highlight_indices[1]
+                    # 실제 예문에서 하이라이트된 단어 추출
+                    highlighted_word = sentence[start:end]
+                    # 해당 부분을 ___로 치환
+                    sentence = sentence[:start] + '___' + sentence[end:]
+
+                # 번역 가져오기
+                translation = example.translations.filter(language=obj.quiz.native_language).first()
+                trans_text = translation.translated_sentence if translation else ''
+                # 프론트엔드가 파싱할 수 있는 형식으로 반환
+                return f"Example: {sentence}\nTranslation: {trans_text}"
             return obj.word.text
         else:
+            # NATIVE_TO_WORD_SELECT, NATIVE_TO_WORD_INPUT
             translation = obj.word.translations.filter(language=obj.quiz.native_language).first()
             return translation.translated_text if translation else obj.word.text
 
@@ -665,9 +730,8 @@ class FlashcardStartRequestSerializer(serializers.Serializer):
 
 
 class FlashcardAnswerRequestSerializer(serializers.Serializer):
-    """플래시카드 응답 요청 Serializer"""
+    """플래시카드 다음 카드 요청 Serializer"""
     record_id = serializers.IntegerField(help_text='플래시카드 기록 ID')
-    is_known = serializers.BooleanField(help_text='알아요 여부')
 
 
 # =============================================================================

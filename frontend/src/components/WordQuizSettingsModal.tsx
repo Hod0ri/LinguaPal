@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { userApi } from '../services/api'
+import { userApi, vocabularyApi } from '../services/api'
 import { lrsWordQuizApi } from '../services/lrsMiddleware'
 import type { WordQuizType, WordQuizQuestionCount, Language } from '../types'
+import type { Vocabulary } from '../types/vocabulary'
 
 interface WordQuizSettingsModalProps {
   isOpen: boolean
@@ -13,6 +14,8 @@ const QUIZ_TYPES: { value: WordQuizType; label: string; description: string }[] 
   { value: 'word_to_native', label: '단어 -> 모국어', description: '학습 언어 단어를 보고 모국어 뜻 입력' },
   { value: 'native_to_word_select', label: '모국어 -> 단어 (선택)', description: '모국어 뜻을 보고 단어 선택' },
   { value: 'native_to_word_input', label: '모국어 -> 단어 (입력)', description: '모국어 뜻을 보고 단어 입력' },
+  { value: 'example_fill_in_blank', label: '예문 빈칸 채우기 (3지선다)', description: '예문과 번역을 보고 빈칸에 들어갈 단어 선택' },
+  { value: 'mixed', label: '🎲 혼합 문제 (추천)', description: '모든 유형의 문제가 랜덤하게 출제됩니다' },
 ]
 
 const QUESTION_COUNTS: { value: WordQuizQuestionCount; label: string }[] = [
@@ -27,6 +30,10 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
   const [selectedLanguage, setSelectedLanguage] = useState<string>('')
   const [quizType, setQuizType] = useState<WordQuizType>('word_to_native')
   const [questionCount, setQuestionCount] = useState<WordQuizQuestionCount>('10')
+  const [vocabularies, setVocabularies] = useState<Vocabulary[]>([])
+  const [selectedVocabularyId, setSelectedVocabularyId] = useState<number | null>(null)
+  const [useVocabulary, setUseVocabulary] = useState(false)
+  const [learnedWordsOnly, setLearnedWordsOnly] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,8 +41,15 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
   useEffect(() => {
     if (isOpen) {
       loadUserProfile()
+      loadVocabularies()
     }
   }, [isOpen])
+
+  // Reset vocabulary selection when language changes
+  useEffect(() => {
+    setSelectedVocabularyId(null)
+    setUseVocabulary(false)
+  }, [selectedLanguage])
 
   const loadUserProfile = async () => {
     setIsLoadingProfile(true)
@@ -55,9 +69,25 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
     }
   }
 
+  const loadVocabularies = async () => {
+    try {
+      const response = await vocabularyApi.getVocabularies()
+      if (response.data.success) {
+        setVocabularies(response.data.data.vocabularies)
+      }
+    } catch {
+      // Silently fail - vocabularies are optional
+    }
+  }
+
   const handleStartQuiz = async () => {
     if (!selectedLanguage) {
       setError('학습 언어를 선택해주세요.')
+      return
+    }
+
+    if (useVocabulary && !selectedVocabularyId) {
+      setError('단어장을 선택해주세요.')
       return
     }
 
@@ -69,6 +99,8 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
         learning_language: selectedLanguage,
         quiz_type: quizType,
         question_count: questionCount,
+        vocabulary_id: useVocabulary ? selectedVocabularyId : null,
+        learned_words_only: learnedWordsOnly,
       })
 
       if (response.data.success) {
@@ -176,6 +208,62 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
                       </div>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Vocabulary Selection */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-slate-700">단어장 사용</label>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useVocabulary}
+                      onChange={(e) => setUseVocabulary(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
+                {useVocabulary && (
+                  <div className="space-y-2">
+                    <select
+                      value={selectedVocabularyId || ''}
+                      onChange={(e) => setSelectedVocabularyId(e.target.value ? parseInt(e.target.value) : null)}
+                      className="w-full p-3 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all"
+                    >
+                      <option value="">단어장을 선택하세요</option>
+                      {vocabularies
+                        .filter((vocab) => vocab.language_code === selectedLanguage)
+                        .map((vocab) => (
+                          <option key={vocab.id} value={vocab.id}>
+                            {vocab.name} ({vocab.word_count}개 단어)
+                          </option>
+                        ))}
+                    </select>
+                    {vocabularies.filter((vocab) => vocab.language_code === selectedLanguage).length === 0 && (
+                      <p className="text-xs text-slate-500 mt-1">선택한 언어의 단어장이 없습니다.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Learned Words Only */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">배운 단어만</label>
+                    <p className="text-xs text-slate-500 mt-1">학습하기에서 본 단어들로만 퀴즈 구성</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={learnedWordsOnly}
+                      onChange={(e) => setLearnedWordsOnly(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
                 </div>
               </div>
 

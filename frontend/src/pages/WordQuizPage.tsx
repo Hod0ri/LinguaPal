@@ -159,10 +159,37 @@ export default function WordQuizPage() {
     )
   }
 
-  const isSelectType = quiz.quiz_type === 'native_to_word_select'
+  // For mixed quiz type, determine question type dynamically
+  const isMixedQuiz = quiz.quiz_type === 'mixed'
+  const isCurrentQuestionExample = currentQuestion.question.includes('Example:')
+  const isSelectType = quiz.quiz_type === 'native_to_word_select' ||
+                       quiz.quiz_type === 'example_fill_in_blank' ||
+                       (isMixedQuiz && currentQuestion.choices && currentQuestion.choices.length > 0)
+  const isExampleFillType = quiz.quiz_type === 'example_fill_in_blank' ||
+                            (isMixedQuiz && isCurrentQuestionExample)
   const progressPercent = progress ? (progress.current / progress.total) * 100 : 0
 
   const getQuizTypeDescription = () => {
+    // For mixed quiz, determine description based on current question
+    if (isMixedQuiz) {
+      if (isCurrentQuestionExample) {
+        return '빈칸에 들어갈 단어(또는 동사의 원형)를 선택하세요'
+      } else if (currentQuestion.choices && currentQuestion.choices.length > 0) {
+        return `위 ${quiz.native_language_name} 뜻에 해당하는 ${quiz.learning_language_name} 단어를 선택하세요`
+      } else {
+        // Determine if it's word_to_native or native_to_word_input based on question content
+        // Check if question contains Korean characters (Hangul)
+        const hasKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(currentQuestion.question)
+        if (hasKorean) {
+          // Question is in native language (Korean) -> user needs to input in learning language
+          return `위 ${quiz.native_language_name} 뜻에 해당하는 ${quiz.learning_language_name} 단어를 입력하세요`
+        } else {
+          // Question is in learning language -> user needs to input in native language
+          return `위 ${quiz.learning_language_name} 단어의 뜻을 ${quiz.native_language_name}로 입력하세요`
+        }
+      }
+    }
+
     switch (quiz.quiz_type) {
       case 'word_to_native':
         return `위 ${quiz.learning_language_name} 단어의 뜻을 ${quiz.native_language_name}로 입력하세요`
@@ -170,9 +197,20 @@ export default function WordQuizPage() {
         return `위 ${quiz.native_language_name} 뜻에 해당하는 ${quiz.learning_language_name} 단어를 선택하세요`
       case 'native_to_word_input':
         return `위 ${quiz.native_language_name} 뜻에 해당하는 ${quiz.learning_language_name} 단어를 입력하세요`
+      case 'example_fill_in_blank':
+        return '빈칸에 들어갈 단어(또는 동사의 원형)를 선택하세요'
       default:
         return ''
     }
+  }
+
+  // Parse example fill-in-blank question format
+  // Expected format: "Example: <sentence with ___>\nTranslation: <translation>"
+  const parseExampleQuestion = (questionText: string) => {
+    const parts = questionText.split('\n')
+    const example = parts.find(p => p.startsWith('Example:'))?.replace('Example:', '').trim() || ''
+    const translation = parts.find(p => p.startsWith('Translation:'))?.replace('Translation:', '').trim() || ''
+    return { example, translation }
   }
 
   return (
@@ -208,12 +246,37 @@ export default function WordQuizPage() {
         <div className="card p-8 mb-6">
           <div className="text-center mb-8">
             <p className="text-sm text-slate-500 mb-4">문제 {currentQuestion.question_number}</p>
-            <p className="text-4xl font-bold text-slate-800 mb-2">
-              {currentQuestion.question}
-            </p>
-            <p className="text-sm text-slate-400">
-              {getQuizTypeDescription()}
-            </p>
+            {isExampleFillType ? (
+              <div>
+                {(() => {
+                  const { example, translation } = parseExampleQuestion(currentQuestion.question)
+                  return (
+                    <>
+                      <div className="bg-indigo-50 p-6 rounded-xl mb-4">
+                        <p className="text-2xl font-bold text-slate-800 mb-3">
+                          {example}
+                        </p>
+                        <p className="text-lg text-slate-600">
+                          {translation}
+                        </p>
+                      </div>
+                      <p className="text-sm text-slate-400">
+                        {getQuizTypeDescription()}
+                      </p>
+                    </>
+                  )
+                })()}
+              </div>
+            ) : (
+              <>
+                <p className="text-4xl font-bold text-slate-800 mb-2">
+                  {currentQuestion.question}
+                </p>
+                <p className="text-sm text-slate-400">
+                  {getQuizTypeDescription()}
+                </p>
+              </>
+            )}
           </div>
 
           {isSelectType ? (
