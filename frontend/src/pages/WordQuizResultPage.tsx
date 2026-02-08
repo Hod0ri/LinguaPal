@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { wordQuizApi } from '../services/api'
 import Layout from '../components/Layout'
 import WordQuizSettingsModal from '../components/WordQuizSettingsModal'
@@ -8,6 +9,7 @@ import type { WordQuiz } from '../types'
 export default function WordQuizResultPage() {
   const { quizId } = useParams<{ quizId: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [quiz, setQuiz] = useState<WordQuiz | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -25,7 +27,7 @@ export default function WordQuizResultPage() {
         setQuiz(response.data.data)
       }
     } catch {
-      setError('결과를 불러오는데 실패했습니다.')
+      setError(t('wordQuizResult.loadFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -49,9 +51,9 @@ export default function WordQuizResultPage() {
     return (
       <Layout>
         <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4">
-          <p className="text-slate-600">{error || '퀴즈를 찾을 수 없습니다.'}</p>
+          <p className="text-slate-600">{error || t('wordQuiz.notFound')}</p>
           <button onClick={() => navigate('/')} className="btn-primary">
-            메인으로 돌아가기
+            {t('common.goToMain')}
           </button>
         </div>
       </Layout>
@@ -71,10 +73,10 @@ export default function WordQuizResultPage() {
   }
 
   const getScoreMessage = () => {
-    if (isPerfect) return '완벽해요!'
-    if (isGood) return '잘했어요!'
-    if (isOkay) return '조금만 더 노력해요!'
-    return '다시 도전해보세요!'
+    if (isPerfect) return t('wordQuizResult.perfect')
+    if (isGood) return t('wordQuizResult.good')
+    if (isOkay) return t('wordQuizResult.okay')
+    return t('wordQuizResult.tryAgain')
   }
 
   const incorrectQuestions = quiz.questions.filter((q) => !q.is_correct)
@@ -123,34 +125,34 @@ export default function WordQuizResultPage() {
             {getScoreMessage()}
           </h1>
           <p className="text-slate-500 mb-6">
-            {quiz.total_questions}문제 중 {quiz.correct_count}문제 정답
+            {t('wordQuizResult.questionSummary', { total: quiz.total_questions, correct: quiz.correct_count })}
           </p>
 
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="p-4 bg-emerald-50 rounded-xl">
               <p className="text-2xl font-bold text-emerald-600">{quiz.total_questions}</p>
-              <p className="text-xs text-slate-500">총 문제</p>
+              <p className="text-xs text-slate-500">{t('wordQuizResult.totalQuestions')}</p>
             </div>
             <div className="p-4 bg-blue-50 rounded-xl">
               <p className="text-2xl font-bold text-blue-600">{quiz.correct_count}</p>
-              <p className="text-xs text-slate-500">정답</p>
+              <p className="text-xs text-slate-500">{t('wordQuizResult.correct')}</p>
             </div>
             <div className="p-4 bg-rose-50 rounded-xl">
               <p className="text-2xl font-bold text-rose-600">{quiz.total_questions - quiz.correct_count}</p>
-              <p className="text-xs text-slate-500">오답</p>
+              <p className="text-xs text-slate-500">{t('wordQuizResult.incorrect')}</p>
             </div>
           </div>
 
           <div className="text-sm text-slate-500 space-y-1">
             <p>{quiz.learning_language_name} - {quiz.quiz_type_display}</p>
-            <p>완료: {quiz.completed_at ? new Date(quiz.completed_at).toLocaleString('ko-KR') : '-'}</p>
+            <p>{t('wordQuizResult.completed')}: {quiz.completed_at ? new Date(quiz.completed_at).toLocaleString('ko-KR') : '-'}</p>
           </div>
         </div>
 
         {incorrectQuestions.length > 0 && (
           <div className="card p-6 mb-6">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">
-              틀린 문제 ({incorrectQuestions.length}개)
+              {t('wordQuizResult.incorrectQuestions', { count: incorrectQuestions.length })}
             </h2>
             <div className="space-y-3">
               {incorrectQuestions.map((q) => (
@@ -163,11 +165,11 @@ export default function WordQuizResultPage() {
                     <span className="text-slate-400">→</span>
                     <div>
                       <p className="text-sm">
-                        <span className="text-slate-500">내 답:</span>{' '}
+                        <span className="text-slate-500">{t('wordQuiz.myAnswer')}:</span>{' '}
                         <span className="text-rose-600 font-medium">{q.user_answer || '-'}</span>
                       </p>
                       <p className="text-sm">
-                        <span className="text-slate-500">정답:</span>{' '}
+                        <span className="text-slate-500">{t('wordQuiz.answer')}:</span>{' '}
                         <span className="text-emerald-600 font-medium">{q.correct_answer}</span>
                       </p>
                     </div>
@@ -180,16 +182,16 @@ export default function WordQuizResultPage() {
 
         <div className="flex gap-3">
           <Link to="/" className="flex-1 btn-secondary text-center">
-            메인으로
+            {t('common.goToMainShort')}
           </Link>
           <Link to="/word-quiz/dashboard" className="flex-1 btn-secondary text-center">
-            학습 통계
+            {t('wordQuizResult.stats')}
           </Link>
           <button
             onClick={() => setShowQuizModal(true)}
             className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl"
           >
-            다시 도전
+            {t('wordQuizResult.retryQuiz')}
           </button>
         </div>
       </div>

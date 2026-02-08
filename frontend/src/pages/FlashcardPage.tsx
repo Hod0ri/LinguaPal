@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import { flashcardApi } from '../services/flashcardApi'
@@ -68,6 +69,7 @@ function renderHighlightedText(text: string, highlight: number[] | null): React.
 export default function FlashcardPage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const { t } = useTranslation()
 
   // Setup state
   const [selectedLanguage, setSelectedLanguage] = useState<string>('')
@@ -102,7 +104,7 @@ export default function FlashcardPage() {
 
   const startSession = async () => {
     if (!selectedLanguage) {
-      setError('학습할 언어를 선택해주세요.')
+      setError(t('flashcard.selectLanguage'))
       return
     }
 
@@ -125,10 +127,10 @@ export default function FlashcardPage() {
         setKnownCount(0)
         setUnknownCount(0)
       } else {
-        setError(response.data.message || '세션 시작에 실패했습니다.')
+        setError(response.data.message || t('flashcard.sessionStartFailed'))
       }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : '세션 시작 중 오류가 발생했습니다.'
+      const errorMessage = err instanceof Error ? err.message : t('flashcard.sessionStartError')
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -240,7 +242,7 @@ export default function FlashcardPage() {
     <div className="max-w-md mx-auto">
       <div className="bg-white rounded-2xl shadow-lg p-8">
         <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">
-          학습하기
+          {t('flashcard.title')}
         </h2>
 
         {error && (
@@ -253,7 +255,7 @@ export default function FlashcardPage() {
           {/* Language Selection */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              학습 언어
+              {t('flashcard.language')}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {profile?.learning_languages?.map((lang) => (
@@ -271,14 +273,14 @@ export default function FlashcardPage() {
               ))}
             </div>
             {(!profile?.learning_languages || profile.learning_languages.length === 0) && (
-              <p className="text-sm text-slate-400 mt-2">학습 언어를 프로필에서 설정해주세요.</p>
+              <p className="text-sm text-slate-400 mt-2">{t('flashcard.setLanguageInProfile')}</p>
             )}
           </div>
 
           {/* Category Selection */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              카테고리
+              {t('flashcard.category')}
             </label>
             <div className="grid grid-cols-2 gap-2">
               {getCategoryOptions(selectedLanguage).map((option) => (
@@ -291,7 +293,7 @@ export default function FlashcardPage() {
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {option.label}
+                  {option.value ? t('wordBrowse.categories.' + option.value, option.label) : t('common.all')}
                 </button>
               ))}
             </div>
@@ -300,7 +302,7 @@ export default function FlashcardPage() {
           {/* Card Count Selection */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              카드 수
+              {t('flashcard.cardCount')}
             </label>
             <div className="grid grid-cols-4 gap-2">
               {CARD_COUNT_OPTIONS.map((count) => (
@@ -313,7 +315,7 @@ export default function FlashcardPage() {
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {count}개
+                  {t('common.items', { count })}
                 </button>
               ))}
             </div>
@@ -325,17 +327,17 @@ export default function FlashcardPage() {
             disabled={isLoading || !selectedLanguage}
             className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold text-lg hover:from-indigo-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? '시작 중...' : '학습 시작'}
+            {isLoading ? t('common.starting') : t('flashcard.startSession')}
           </button>
         </div>
       </div>
 
       {/* Keyboard Shortcuts Info */}
       <div className="mt-6 bg-slate-50 rounded-xl p-4 text-sm text-slate-600">
-        <p className="font-medium mb-2">키보드 단축키</p>
+        <p className="font-medium mb-2">{t('flashcard.keyboard.title')}</p>
         <ul className="space-y-1">
-          <li><kbd className="px-2 py-1 bg-white rounded border">Space</kbd> - 카드 뒤집기</li>
-          <li><kbd className="px-2 py-1 bg-white rounded border">→</kbd> / <kbd className="px-2 py-1 bg-white rounded border">Enter</kbd> / <kbd className="px-2 py-1 bg-white rounded border">N</kbd> - 다음 카드</li>
+          <li><kbd className="px-2 py-1 bg-white rounded border">Space</kbd> - {t('flashcard.keyboard.space')}</li>
+          <li><kbd className="px-2 py-1 bg-white rounded border">→</kbd> / <kbd className="px-2 py-1 bg-white rounded border">Enter</kbd> / <kbd className="px-2 py-1 bg-white rounded border">N</kbd> - {t('flashcard.keyboard.nextCardKey')}</li>
         </ul>
       </div>
     </div>
@@ -353,7 +355,7 @@ export default function FlashcardPage() {
         <div className="mb-6">
           <div className="flex justify-between text-sm text-slate-600 mb-2">
             <span className="font-medium">{currentIndex} / {session.total_cards}</span>
-            <span className="text-indigo-600">학습 중</span>
+            <span className="text-indigo-600">{t('flashcard.studying')}</span>
           </div>
           <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
             <div
@@ -399,7 +401,7 @@ export default function FlashcardPage() {
                     })
                   }}
                   className="p-3 bg-indigo-100 text-indigo-700 rounded-xl hover:bg-indigo-200 transition-colors flex-shrink-0"
-                  title="발음 듣기"
+                  title={t('flashcard.listenPronunciation')}
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -412,7 +414,7 @@ export default function FlashcardPage() {
                 </div>
               )}
               <div className="mt-6 text-sm text-slate-400">
-                클릭하여 뒤집기
+                {t('flashcard.clickToFlip')}
               </div>
             </div>
 
@@ -426,7 +428,7 @@ export default function FlashcardPage() {
               }}
             >
               <div className="text-3xl font-bold mb-4">
-                {currentCard.word.translation || '번역 없음'}
+                {currentCard.word.translation || t('flashcard.noTranslation')}
               </div>
               {currentCard.word.example && (
                 <div className="text-center mt-4">
@@ -443,7 +445,7 @@ export default function FlashcardPage() {
                         })
                       }}
                       className="p-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors flex-shrink-0"
-                      title="예문 듣기"
+                      title={t('flashcard.listenExample')}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -458,7 +460,7 @@ export default function FlashcardPage() {
                 </div>
               )}
               <div className="absolute bottom-4 text-sm opacity-60">
-                {[...BASE_CATEGORY_OPTIONS, ...JAPANESE_CATEGORY_OPTIONS].find((c) => c.value === currentCard.word.category)?.label}
+                {currentCard.word.category ? t('wordBrowse.categories.' + currentCard.word.category, [...BASE_CATEGORY_OPTIONS, ...JAPANESE_CATEGORY_OPTIONS].find((c) => c.value === currentCard.word.category)?.label) : t('common.all')}
               </div>
             </div>
           </div>
@@ -477,11 +479,11 @@ export default function FlashcardPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                처리 중...
+                {t('flashcard.processing')}
               </>
             ) : (
               <>
-                다음 카드
+                {t('flashcard.nextCard')}
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
@@ -493,11 +495,11 @@ export default function FlashcardPage() {
         {/* Help Text */}
         {!isFlipped ? (
           <p className="text-center text-slate-500 mt-4">
-            카드를 클릭하거나 Space 키를 눌러 뒤집으세요
+            {t('flashcard.flipOrSpace')}
           </p>
         ) : (
           <p className="text-center text-slate-500 mt-4">
-            다음 카드를 보려면 버튼을 클릭하거나 Enter 키를 누르세요
+            {t('flashcard.nextCardOrEnter')}
           </p>
         )}
       </div>
@@ -517,17 +519,17 @@ export default function FlashcardPage() {
           </div>
 
           <h2 className="text-2xl font-bold text-slate-800 mb-2">
-            학습 완료!
+            {t('flashcard.complete')}
           </h2>
           <p className="text-slate-600 mb-8">
-            수고하셨습니다!
+            {t('flashcard.goodJob')}
           </p>
 
           {/* Stats */}
           <div className="mb-8">
             <div className="bg-indigo-50 rounded-xl p-6">
               <div className="text-5xl font-bold text-indigo-600 mb-2">{total}</div>
-              <div className="text-lg text-indigo-700">단어 학습 완료</div>
+              <div className="text-lg text-indigo-700">{t('flashcard.wordsStudied')}</div>
             </div>
           </div>
 
@@ -537,13 +539,13 @@ export default function FlashcardPage() {
               onClick={handleRestart}
               className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all"
             >
-              다시 학습하기
+              {t('flashcard.studyAgain')}
             </button>
             <button
               onClick={() => navigate('/')}
               className="w-full py-4 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-colors"
             >
-              홈으로
+              {t('flashcard.goHome')}
             </button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import axios from 'axios'
 import { lrsGanaQuizApi } from '../services/lrsMiddleware'
 import Layout from '../components/Layout'
@@ -10,6 +11,7 @@ type AnswerState = 'answering' | 'correct' | 'incorrect'
 export default function QuizPage() {
   const { quizId } = useParams<{ quizId: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [quiz, setQuiz] = useState<GanaQuiz | null>(null)
   const [currentQuestion, setCurrentQuestion] = useState<CurrentQuestion | null>(null)
@@ -31,7 +33,7 @@ export default function QuizPage() {
       const quizResponse = await lrsGanaQuizApi.getQuizDetail(parseInt(quizId))
 
       if (!quizResponse.data.success) {
-        setError('퀴즈를 찾을 수 없습니다.')
+        setError(t('wordQuiz.notFound'))
         return
       }
 
@@ -62,14 +64,14 @@ export default function QuizPage() {
     } catch (err) {
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 404) {
-          setError('퀴즈를 찾을 수 없습니다.')
+          setError(t('wordQuiz.notFound'))
         } else if (err.response?.status === 403) {
-          setError('이 퀴즈에 접근할 권한이 없습니다.')
+          setError(t('wordQuiz.noPermission'))
         } else {
-          setError('퀴즈를 불러오는데 실패했습니다.')
+          setError(t('wordQuiz.loadFailed'))
         }
       } else {
-        setError('퀴즈를 불러오는데 실패했습니다.')
+        setError(t('wordQuiz.loadFailed'))
       }
     } finally {
       setIsLoading(false)
@@ -103,7 +105,7 @@ export default function QuizPage() {
         }
       }
     } catch {
-      setError('답변을 제출할 수 없습니다.')
+      setError(t('wordQuiz.submitFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -156,9 +158,9 @@ export default function QuizPage() {
     return (
       <Layout>
         <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4">
-          <p className="text-slate-600">{error || '퀴즈를 찾을 수 없습니다.'}</p>
+          <p className="text-slate-600">{error || t('wordQuiz.notFound')}</p>
           <button onClick={() => navigate('/')} className="btn-primary">
-            메인으로 돌아가기
+            {t('common.goToMain')}
           </button>
         </div>
       </Layout>
@@ -190,10 +192,10 @@ export default function QuizPage() {
           </div>
           <div className="flex justify-between mt-2">
             <span className="text-xs text-slate-500">
-              정답: {progress?.correct_so_far}개
+              {t('wordQuiz.correctCount', { count: progress?.correct_so_far })}
             </span>
             <span className="text-xs text-slate-500">
-              정답률: {progress && progress.current > 1
+              {t('wordQuiz.accuracy') + ':'} {progress && progress.current > 1
                 ? Math.round((progress.correct_so_far / (progress.current - 1)) * 100)
                 : 0}%
             </span>
@@ -203,16 +205,16 @@ export default function QuizPage() {
         {/* Question Card */}
         <div className="card p-8 mb-6">
           <div className="text-center mb-8">
-            <p className="text-sm text-slate-500 mb-4">문제 {currentQuestion.question_number}</p>
+            <p className="text-sm text-slate-500 mb-4">{t('wordQuiz.question', { number: currentQuestion.question_number })}</p>
             <p className="text-6xl font-bold text-slate-800 mb-2">
               {currentQuestion.question}
             </p>
             <p className="text-sm text-slate-400">
               {quiz.quiz_type === 'gana_to_romaji'
-                ? '위 문자의 발음을 로마자로 입력하세요'
+                ? t('quiz.enterRomaji')
                 : quiz.quiz_type === 'romaji_to_gana_select'
-                ? '위 발음에 해당하는 문자를 선택하세요'
-                : '위 발음에 해당하는 문자를 입력하세요'}
+                ? t('quiz.selectCharacter')
+                : t('quiz.enterCharacter')}
             </p>
           </div>
 
@@ -283,7 +285,7 @@ export default function QuizPage() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="font-medium">정답입니다!</span>
+                  <span className="font-medium">{t('wordQuiz.correctAnswer')}</span>
                 </div>
               ) : (
                 <div>
@@ -291,10 +293,10 @@ export default function QuizPage() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                    <span className="font-medium">틀렸습니다</span>
+                    <span className="font-medium">{t('wordQuiz.incorrectAnswer')}</span>
                   </div>
                   <p className="text-sm">
-                    정답: <span className="font-bold text-lg">{lastResult.correct_answer}</span>
+                    {t('wordQuiz.answer') + ':'} <span className="font-bold text-lg">{lastResult.correct_answer}</span>
                   </p>
                 </div>
               )}
@@ -308,7 +310,7 @@ export default function QuizPage() {
             onClick={() => navigate('/')}
             className="flex-1 btn-secondary"
           >
-            그만하기
+            {t('wordQuiz.quit')}
           </button>
           {answerState === 'answering' ? (
             <button
@@ -316,21 +318,21 @@ export default function QuizPage() {
               disabled={!userAnswer.trim() || isSubmitting}
               className="flex-1 btn-primary disabled:opacity-50"
             >
-              {isSubmitting ? '확인 중...' : '확인'}
+              {isSubmitting ? t('wordQuiz.checking') : t('wordQuiz.submit')}
             </button>
           ) : lastResult?.quiz_completed ? (
             <button
               onClick={() => navigate(`/quiz/result/${quizId}`)}
               className="flex-1 btn-primary"
             >
-              결과 보기
+              {t('wordQuiz.viewResult')}
             </button>
           ) : (
             <button
               onClick={handleNextQuestion}
               className="flex-1 btn-primary"
             >
-              다음 문제
+              {t('wordQuiz.nextQuestion')}
             </button>
           )}
         </div>

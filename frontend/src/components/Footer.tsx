@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'LinguaPal'
 
 export default function Footer() {
+  const { t } = useTranslation()
   const currentYear = new Date().getFullYear()
 
   return (
@@ -20,13 +22,13 @@ export default function Footer() {
               to="/terms"
               className="text-slate-500 hover:text-indigo-600 transition-colors"
             >
-              이용약관
+              {t('footer.termsOfService')}
             </Link>
             <Link
               to="/privacy"
               className="text-slate-500 hover:text-indigo-600 transition-colors"
             >
-              개인정보처리방침
+              {t('footer.privacyPolicy')}
             </Link>
           </div>
         </div>

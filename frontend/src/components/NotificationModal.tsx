@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 interface NotificationModalProps {
   isOpen: boolean
   onClose: () => void
@@ -13,6 +15,8 @@ export default function NotificationModal({
   message,
   type = 'info'
 }: NotificationModalProps) {
+  const { t } = useTranslation()
+
   if (!isOpen) return null
 
   const typeColors = {
@@ -69,7 +73,7 @@ export default function NotificationModal({
             onClick={onClose}
             className="px-6 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
           >
-            확인
+            {t('notification.confirm')}
           </button>
         </div>
       </div>

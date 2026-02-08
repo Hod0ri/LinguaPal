@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import { wordBrowseApi } from '../services/api'
@@ -19,12 +20,12 @@ import { tts, getLanguageCode } from '../utils/textToSpeech'
 // View modes
 type ViewMode = 'list' | 'random' | 'detail'
 
-// Category options for filtering
-const CATEGORY_OPTIONS: { value: WordCategory | ''; label: string }[] = [
-  { value: '', label: '전체' },
-  { value: 'word', label: '단어' },
-  { value: 'hiragana', label: '히라가나' },
-  { value: 'katakana', label: '가타카나' },
+// Category options for filtering (labels resolved via i18n at render time)
+const CATEGORY_OPTIONS: { value: WordCategory | '' }[] = [
+  { value: '' },
+  { value: 'word' },
+  { value: 'hiragana' },
+  { value: 'katakana' },
 ]
 
 /**
@@ -115,6 +116,7 @@ function renderGrammar(grammar: Record<string, unknown>): React.ReactNode {
 }
 
 export default function WordBrowsePage() {
+  const { t } = useTranslation()
   const { profile } = useAuth()
   const [searchParams] = useSearchParams()
 
@@ -171,15 +173,15 @@ export default function WordBrowsePage() {
         setWords(response.data.data.words)
         setPagination(response.data.data.pagination)
       } else {
-        setError(response.data.message || '단어를 불러오는데 실패했습니다.')
+        setError(response.data.message || t('wordBrowse.loadFailed'))
       }
     } catch (err) {
       console.error('Failed to load words:', err)
-      setError('단어를 불러오는데 실패했습니다.')
+      setError(t('wordBrowse.loadFailed'))
     } finally {
       setIsLoading(false)
     }
-  }, [selectedLanguage, selectedCategory, selectedPartOfSpeech, selectedDifficulty, searchQuery, currentPage])
+  }, [selectedLanguage, selectedCategory, selectedPartOfSpeech, selectedDifficulty, searchQuery, currentPage, t])
 
   // Load words on mount and filter changes
   useEffect(() => {
@@ -199,11 +201,11 @@ export default function WordBrowsePage() {
         setSelectedWord(response.data.data)
         setViewMode('detail')
       } else {
-        setError(response.data.message || '단어를 불러오는데 실패했습니다.')
+        setError(response.data.message || t('wordBrowse.loadFailed'))
       }
     } catch (err) {
       console.error('Failed to load word detail:', err)
-      setError('단어를 불러오는데 실패했습니다.')
+      setError(t('wordBrowse.loadFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -227,11 +229,11 @@ export default function WordBrowsePage() {
         setCurrentRandomIndex(0)
         setViewMode('random')
       } else {
-        setError('조건에 맞는 단어가 없습니다.')
+        setError(t('wordBrowse.noMatchingWords'))
       }
     } catch (err) {
       console.error('Failed to load random words:', err)
-      setError('랜덤 단어를 불러오는데 실패했습니다.')
+      setError(t('wordBrowse.loadRandomFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -265,7 +267,7 @@ export default function WordBrowsePage() {
           {/* Language filter */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              언어
+              {t('wordBrowse.language')}
             </label>
             <select
               value={selectedLanguage}
@@ -286,7 +288,7 @@ export default function WordBrowsePage() {
           {/* Category filter */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              카테고리
+              {t('wordBrowse.category')}
             </label>
             <select
               value={selectedCategory}
@@ -298,7 +300,7 @@ export default function WordBrowsePage() {
             >
               {CATEGORY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {option.value === '' ? t('common.all') : t(`wordBrowse.categories.${option.value}`)}
                 </option>
               ))}
             </select>
@@ -307,7 +309,7 @@ export default function WordBrowsePage() {
           {/* Part of speech filter */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              품사
+              {t('wordBrowse.partOfSpeech')}
             </label>
             <select
               value={selectedPartOfSpeech}
@@ -317,7 +319,7 @@ export default function WordBrowsePage() {
               }}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="">전체</option>
+              <option value="">{t('common.all')}</option>
               {PART_OF_SPEECH_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -329,7 +331,7 @@ export default function WordBrowsePage() {
           {/* Difficulty filter */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              난이도
+              {t('wordBrowse.difficulty')}
             </label>
             <select
               value={selectedDifficulty}
@@ -339,7 +341,7 @@ export default function WordBrowsePage() {
               }}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="">전체</option>
+              <option value="">{t('common.all')}</option>
               {DIFFICULTY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -356,14 +358,14 @@ export default function WordBrowsePage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="단어 또는 발음으로 검색..."
+              placeholder={t('wordBrowse.searchPlaceholder')}
               className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <button
               type="submit"
               className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              검색
+              {t('common.search')}
             </button>
           </form>
           <button
@@ -374,7 +376,7 @@ export default function WordBrowsePage() {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            랜덤
+            {t('wordBrowse.random')}
           </button>
         </div>
       </div>
@@ -443,7 +445,7 @@ export default function WordBrowsePage() {
       {/* Empty state */}
       {!isLoading && words.length === 0 && (
         <div className="text-center py-12 text-slate-500">
-          검색 결과가 없습니다.
+          {t('wordBrowse.noResults')}
         </div>
       )}
 
@@ -455,7 +457,7 @@ export default function WordBrowsePage() {
             disabled={currentPage === 1}
             className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
           >
-            이전
+            {t('common.previous')}
           </button>
           <span className="px-4 py-2 text-slate-600">
             {currentPage} / {pagination.total_pages}
@@ -465,7 +467,7 @@ export default function WordBrowsePage() {
             disabled={currentPage === pagination.total_pages}
             className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
           >
-            다음
+            {t('common.next')}
           </button>
         </div>
       )}
@@ -487,7 +489,7 @@ export default function WordBrowsePage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          목록으로
+          {t('wordBrowse.backToList')}
         </button>
 
         {/* Progress indicator */}
@@ -514,7 +516,7 @@ export default function WordBrowsePage() {
               <button
                 onClick={() => tts.speak(currentWord.text, { lang: getLanguageCode(currentWord.language_code), rate: 0.9 })}
                 className="p-3 bg-indigo-100 text-indigo-700 rounded-xl hover:bg-indigo-200 transition-colors"
-                title="발음 듣기"
+                title={t('wordBrowse.listenPronunciation')}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -549,7 +551,7 @@ export default function WordBrowsePage() {
           {/* Translations */}
           {currentWord.translations.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-slate-500 mb-2">번역</h3>
+              <h3 className="text-sm font-medium text-slate-500 mb-2">{t('wordBrowse.translation')}</h3>
               <div className="space-y-2">
                 {currentWord.translations.map((trans) => (
                   <div key={trans.id} className="p-3 bg-slate-50 rounded-lg">
@@ -566,7 +568,7 @@ export default function WordBrowsePage() {
           {/* Grammar properties */}
           {currentWord.grammar && Object.keys(currentWord.grammar).length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-slate-500 mb-2">문법 속성</h3>
+              <h3 className="text-sm font-medium text-slate-500 mb-2">{t('wordBrowse.grammarProperties')}</h3>
               {renderGrammar(currentWord.grammar)}
             </div>
           )}
@@ -774,8 +776,8 @@ export default function WordBrowsePage() {
       <div className="max-w-4xl mx-auto py-8 px-4">
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">단어 보기</h1>
-          <p className="text-slate-500">학습 중인 언어의 단어를 찾아보세요</p>
+          <h1 className="text-2xl font-bold text-slate-800">{t('wordBrowse.title')}</h1>
+          <p className="text-slate-500">{t('wordBrowse.subtitle')}</p>
         </div>
 
         {/* Content */}
