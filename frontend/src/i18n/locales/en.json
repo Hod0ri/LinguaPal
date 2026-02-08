@@ -89,6 +89,26 @@
       "title": "Study Stats",
       "desc": "Check your quiz scores and learning progress.",
       "button": "View Stats"
+    },
+    "streak": {
+      "days": "{{count}} days",
+      "keepGoing": "streak! Keep it up!",
+      "comeBack": "Last studied {{days}} days ago. Ready to start again?",
+      "startToday": "Start your first study session today!",
+      "best": "Best record",
+      "studiedToday": "Studied today",
+      "notYetToday": "Not studied yet today"
+    },
+    "recommendation": {
+      "recommended": "Recommended",
+      "startLearning": "Start your first study session!",
+      "lowAccuracy": "Your accuracy is {{accuracy}}%. Time to review!",
+      "reviewWords": "Time to review your words!",
+      "testYourself": "Test yourself with a quiz!",
+      "keepPracticing": "Keep practicing to improve!",
+      "checkProgress": "Check the progress of {{count}} words!",
+      "organizeWords": "Organize your vocabulary!",
+      "exploreNewWords": "Explore new words!"
     }
   },
   "flashcard": {

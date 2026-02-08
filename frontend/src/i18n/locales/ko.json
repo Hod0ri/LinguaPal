@@ -89,6 +89,26 @@
       "title": "학습 통계",
       "desc": "퀴즈 성적과 학습 현황을 확인하세요.",
       "button": "통계 보기"
+    },
+    "streak": {
+      "days": "{{count}}일",
+      "keepGoing": "연속 학습 중! 계속 화이팅!",
+      "comeBack": "{{days}}일 전에 마지막으로 학습했어요. 다시 시작해볼까요?",
+      "startToday": "오늘 첫 학습을 시작해보세요!",
+      "best": "최고 기록",
+      "studiedToday": "오늘 학습 완료",
+      "notYetToday": "오늘 아직 학습 전"
+    },
+    "recommendation": {
+      "recommended": "추천",
+      "startLearning": "첫 학습을 시작해보세요!",
+      "lowAccuracy": "정답률이 {{accuracy}}%예요. 복습이 필요해요!",
+      "reviewWords": "단어 복습할 시간이에요!",
+      "testYourself": "퀴즈로 실력을 확인해보세요!",
+      "keepPracticing": "계속 연습해서 실력을 키워보세요!",
+      "checkProgress": "{{count}}개 단어의 학습 현황을 확인해보세요!",
+      "organizeWords": "단어장을 정리해보세요!",
+      "exploreNewWords": "새로운 단어를 탐색해보세요!"
     }
   },
   "flashcard": {

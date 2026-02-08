@@ -337,6 +337,27 @@ export interface FlashcardAnswerResponse {
   unknown_count?: number  // Deprecated: no longer used
 }
 
+// ============= Streak & Recommendation Types =============
+export interface LearningStreak {
+  current_streak: number
+  max_streak: number
+  last_activity_date: string | null
+  is_active_today: boolean
+  days_since_last_study: number | null
+}
+
+export interface CardRecommendation {
+  card_id: 'flashcard' | 'quiz' | 'learnedWords' | 'vocabulary' | 'wordBrowse'
+  reason_key: string
+  reason_params: Record<string, string | number>
+  priority: 'high' | 'medium' | 'low'
+}
+
+export interface StreakRecommendationResponse {
+  streak: LearningStreak
+  recommendation: CardRecommendation
+}
+
 // Re-export xAPI types
 export * from './xapi'
 

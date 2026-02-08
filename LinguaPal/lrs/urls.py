@@ -31,6 +31,8 @@ from .views import (
     EngagementMetricsView,
     RetentionMetricsView,
     GrowthMetricsView,
+    # User stats
+    UserStreakRecommendationView,
 )
 
 app_name = 'lrs'
@@ -87,6 +89,12 @@ dashboard_patterns = [
     path('growth/', GrowthMetricsView.as_view(), name='dashboard-growth-slash'),
 ]
 
+# User endpoints (authenticated, non-admin)
+user_patterns = [
+    path('streak-recommendation', UserStreakRecommendationView.as_view(), name='user-streak-recommendation'),
+    path('streak-recommendation/', UserStreakRecommendationView.as_view(), name='user-streak-recommendation-slash'),
+]
+
 urlpatterns = [
     # xAPI LRS endpoints
     path('xapi/', include(xapi_patterns)),
@@ -96,6 +104,9 @@ urlpatterns = [
 
     # Dashboard endpoints
     path('dashboard/', include(dashboard_patterns)),
+
+    # User stats endpoints
+    path('user/', include(user_patterns)),
 
     # Statement list (admin)
     path('statements', StatementListView.as_view(), name='statement-list'),

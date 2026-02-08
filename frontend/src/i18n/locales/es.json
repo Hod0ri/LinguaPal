@@ -89,6 +89,26 @@
       "title": "Estadísticas de estudio",
       "desc": "Consulta tus resultados de quiz y tu progreso de aprendizaje.",
       "button": "Ver estadísticas"
+    },
+    "streak": {
+      "days": "{{count}} días",
+      "keepGoing": "de racha. ¡Sigue así!",
+      "comeBack": "Último estudio hace {{days}} días. ¿Listo para volver?",
+      "startToday": "¡Empieza tu primera sesión de estudio hoy!",
+      "best": "Mejor récord",
+      "studiedToday": "Estudiado hoy",
+      "notYetToday": "Aún no has estudiado hoy"
+    },
+    "recommendation": {
+      "recommended": "Recomendado",
+      "startLearning": "¡Empieza tu primera sesión de estudio!",
+      "lowAccuracy": "Tu precisión es {{accuracy}}%. ¡Es hora de repasar!",
+      "reviewWords": "¡Es hora de repasar tus palabras!",
+      "testYourself": "¡Pon a prueba tu conocimiento con un quiz!",
+      "keepPracticing": "¡Sigue practicando para mejorar!",
+      "checkProgress": "¡Revisa el progreso de {{count}} palabras!",
+      "organizeWords": "¡Organiza tu vocabulario!",
+      "exploreNewWords": "¡Explora nuevas palabras!"
     }
   },
   "flashcard": {
