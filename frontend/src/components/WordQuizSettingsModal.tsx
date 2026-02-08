@@ -11,18 +11,18 @@ interface WordQuizSettingsModalProps {
   onClose: () => void
 }
 
-const QUIZ_TYPES: { value: WordQuizType; label: string; description: string }[] = [
-  { value: 'word_to_native', label: '단어 -> 모국어', description: '학습 언어 단어를 보고 모국어 뜻 입력' },
-  { value: 'native_to_word_select', label: '모국어 -> 단어 (선택)', description: '모국어 뜻을 보고 단어 선택' },
-  { value: 'native_to_word_input', label: '모국어 -> 단어 (입력)', description: '모국어 뜻을 보고 단어 입력' },
-  { value: 'example_fill_in_blank', label: '예문 빈칸 채우기 (3지선다)', description: '예문과 번역을 보고 빈칸에 들어갈 단어 선택' },
-  { value: 'mixed', label: '🎲 혼합 문제 (추천)', description: '모든 유형의 문제가 랜덤하게 출제됩니다' },
+const QUIZ_TYPES: { value: WordQuizType }[] = [
+  { value: 'word_to_native' },
+  { value: 'native_to_word_select' },
+  { value: 'native_to_word_input' },
+  { value: 'example_fill_in_blank' },
+  { value: 'mixed' },
 ]
 
-const QUESTION_COUNTS: { value: WordQuizQuestionCount; label: string }[] = [
-  { value: '10', label: '10문제' },
-  { value: '25', label: '25문제' },
-  { value: '0', label: '전체' },
+const QUESTION_COUNTS: { value: WordQuizQuestionCount }[] = [
+  { value: '10' },
+  { value: '25' },
+  { value: '0' },
 ]
 
 export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSettingsModalProps) {

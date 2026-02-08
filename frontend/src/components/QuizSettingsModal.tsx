@@ -9,22 +9,22 @@ interface QuizSettingsModalProps {
   onClose: () => void
 }
 
-const CHARACTER_SETS: { value: GanaCharacterSet; label: string; description: string }[] = [
-  { value: 'hiragana', label: '히라가나', description: 'あ い う え お' },
-  { value: 'katakana', label: '가타카나', description: 'ア イ ウ エ オ' },
-  { value: 'all', label: '전체', description: '히라가나 + 가타카나' },
+const CHARACTER_SETS: { value: GanaCharacterSet }[] = [
+  { value: 'hiragana' },
+  { value: 'katakana' },
+  { value: 'all' },
 ]
 
-const QUIZ_TYPES: { value: GanaQuizType; label: string; description: string }[] = [
-  { value: 'gana_to_romaji', label: '가나 → 로마자', description: '가나를 보고 로마자를 입력' },
-  { value: 'romaji_to_gana_select', label: '로마자 → 가나 (선택)', description: '로마자를 보고 가나를 선택' },
-  { value: 'romaji_to_gana_input', label: '로마자 → 가나 (입력)', description: '로마자를 보고 가나를 입력' },
+const QUIZ_TYPES: { value: GanaQuizType }[] = [
+  { value: 'gana_to_romaji' },
+  { value: 'romaji_to_gana_select' },
+  { value: 'romaji_to_gana_input' },
 ]
 
-const QUESTION_COUNTS: { value: GanaQuizQuestionCount; label: string }[] = [
-  { value: '10', label: '10문제' },
-  { value: '25', label: '25문제' },
-  { value: '0', label: '전체' },
+const QUESTION_COUNTS: { value: GanaQuizQuestionCount }[] = [
+  { value: '10' },
+  { value: '25' },
+  { value: '0' },
 ]
 
 export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModalProps) {
