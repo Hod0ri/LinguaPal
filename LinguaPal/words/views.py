@@ -2325,10 +2325,13 @@ def word_browse_list(request):
     if not native_language:
         native_language = Language.objects.filter(code='ko').first()
 
-    # 기본 쿼리 (학습 중인 언어의 단어만, category=word)
+    # 카테고리 결정 (기본값: word)
+    category = request.query_params.get('category') or WordCategory.WORD
+
+    # 기본 쿼리 (학습 중인 언어의 단어만)
     queryset = Word.objects.filter(
         language_id__in=learning_language_ids,
-        category=WordCategory.WORD,
+        category=category,
         is_active=True
     ).select_related('language').prefetch_related('translations')
 
@@ -2336,15 +2339,6 @@ def word_browse_list(request):
     language_code = request.query_params.get('language')
     if language_code:
         queryset = queryset.filter(language__code=language_code)
-
-    # 카테고리 필터 (히라가나/카타카나 등 다른 카테고리도 볼 수 있도록)
-    category = request.query_params.get('category')
-    if category:
-        queryset = Word.objects.filter(
-            language_id__in=learning_language_ids,
-            category=category,
-            is_active=True
-        ).select_related('language').prefetch_related('translations')
 
     # 품사 필터
     part_of_speech = request.query_params.get('part_of_speech')
@@ -2510,10 +2504,13 @@ def word_browse_random(request):
     if not native_language:
         native_language = Language.objects.filter(code='ko').first()
 
-    # 기본 쿼리 (학습 중인 언어의 단어, 기본 category=word)
+    # 카테고리 결정 (기본값: word)
+    category = request.query_params.get('category') or WordCategory.WORD
+
+    # 기본 쿼리 (학습 중인 언어의 단어)
     queryset = Word.objects.filter(
         language_id__in=learning_language_ids,
-        category=WordCategory.WORD,
+        category=category,
         is_active=True
     ).select_related('language').prefetch_related(
         'translations__language', 'examples__translations__language'
@@ -2523,19 +2520,6 @@ def word_browse_random(request):
     language_code = request.query_params.get('language')
     if language_code:
         queryset = queryset.filter(language__code=language_code)
-
-    # 카테고리 필터
-    category = request.query_params.get('category')
-    if category:
-        queryset = Word.objects.filter(
-            language_id__in=learning_language_ids,
-            category=category,
-            is_active=True
-        ).select_related('language').prefetch_related(
-            'translations__language', 'examples__translations__language'
-        )
-        if language_code:
-            queryset = queryset.filter(language__code=language_code)
 
     # 단어 수
     count = min(int(request.query_params.get('count', 1)), 10)

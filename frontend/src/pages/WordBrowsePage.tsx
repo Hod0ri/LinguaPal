@@ -21,7 +21,12 @@ import { tts, getLanguageCode } from '../utils/textToSpeech'
 type ViewMode = 'list' | 'random' | 'detail'
 
 // Category options for filtering (labels resolved via i18n at render time)
-const CATEGORY_OPTIONS: { value: WordCategory | '' }[] = [
+const BASE_CATEGORY_OPTIONS: { value: WordCategory | '' }[] = [
+  { value: '' },
+  { value: 'word' },
+]
+
+const JAPANESE_CATEGORY_OPTIONS: { value: WordCategory | '' }[] = [
   { value: '' },
   { value: 'word' },
   { value: 'hiragana' },
@@ -272,7 +277,12 @@ export default function WordBrowsePage() {
             <select
               value={selectedLanguage}
               onChange={(e) => {
-                setSelectedLanguage(e.target.value)
+                const newLang = e.target.value
+                setSelectedLanguage(newLang)
+                // Reset category if switching away from Japanese with hiragana/katakana selected
+                if (newLang !== 'ja' && (selectedCategory === 'hiragana' || selectedCategory === 'katakana')) {
+                  setSelectedCategory('')
+                }
                 setCurrentPage(1)
               }}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -298,7 +308,7 @@ export default function WordBrowsePage() {
               }}
               className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              {CATEGORY_OPTIONS.map((option) => (
+              {(selectedLanguage === 'ja' ? JAPANESE_CATEGORY_OPTIONS : BASE_CATEGORY_OPTIONS).map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.value === '' ? t('common.all') : t(`wordBrowse.categories.${option.value}`)}
                 </option>
@@ -576,7 +586,7 @@ export default function WordBrowsePage() {
           {/* Examples */}
           {currentWord.examples.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-slate-500 mb-2">예문</h3>
+              <h3 className="text-sm font-medium text-slate-500 mb-2">{t('wordBrowse.examples')}</h3>
               <div className="space-y-4">
                 {currentWord.examples.map((example) => (
                   <div key={example.id} className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
@@ -587,7 +597,7 @@ export default function WordBrowsePage() {
                       <button
                         onClick={() => tts.speak(example.sentence, { lang: getLanguageCode(currentWord.language_code), rate: 0.85 })}
                         className="p-2 bg-white/60 text-indigo-700 rounded-lg hover:bg-white transition-colors flex-shrink-0"
-                        title="예문 발음 듣기"
+                        title={t('wordBrowse.listenExample')}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -616,7 +626,7 @@ export default function WordBrowsePage() {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            이전
+            {t('common.previous')}
           </button>
           <button
             onClick={loadRandomWords}
@@ -625,14 +635,14 @@ export default function WordBrowsePage() {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            새로 불러오기
+            {t('wordBrowse.loadNew')}
           </button>
           <button
             onClick={() => setCurrentRandomIndex((i) => Math.min(randomWords.length - 1, i + 1))}
             disabled={currentRandomIndex === randomWords.length - 1}
             className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
-            다음
+            {t('common.next')}
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -656,7 +666,7 @@ export default function WordBrowsePage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          목록으로
+          {t('wordBrowse.backToList')}
         </button>
 
         {/* Word card */}
@@ -670,7 +680,7 @@ export default function WordBrowsePage() {
               <button
                 onClick={() => tts.speak(selectedWord.text, { lang: getLanguageCode(selectedWord.language_code), rate: 0.9 })}
                 className="p-3 bg-indigo-100 text-indigo-700 rounded-xl hover:bg-indigo-200 transition-colors"
-                title="발음 듣기"
+                title={t('wordBrowse.listenPronunciation')}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -713,7 +723,7 @@ export default function WordBrowsePage() {
           {/* Translations */}
           {selectedWord.translations.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-slate-500 mb-2">번역</h3>
+              <h3 className="text-sm font-medium text-slate-500 mb-2">{t('wordBrowse.translation')}</h3>
               <div className="space-y-2">
                 {selectedWord.translations.map((trans) => (
                   <div key={trans.id} className="p-3 bg-slate-50 rounded-lg">
@@ -730,7 +740,7 @@ export default function WordBrowsePage() {
           {/* Grammar properties */}
           {selectedWord.grammar && Object.keys(selectedWord.grammar).length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-slate-500 mb-2">문법 속성</h3>
+              <h3 className="text-sm font-medium text-slate-500 mb-2">{t('wordBrowse.grammarProperties')}</h3>
               {renderGrammar(selectedWord.grammar)}
             </div>
           )}
@@ -738,7 +748,7 @@ export default function WordBrowsePage() {
           {/* Examples */}
           {selectedWord.examples.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-slate-500 mb-2">예문</h3>
+              <h3 className="text-sm font-medium text-slate-500 mb-2">{t('wordBrowse.examples')}</h3>
               <div className="space-y-4">
                 {selectedWord.examples.map((example) => (
                   <div key={example.id} className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl">
@@ -749,7 +759,7 @@ export default function WordBrowsePage() {
                       <button
                         onClick={() => tts.speak(example.sentence, { lang: getLanguageCode(selectedWord.language_code), rate: 0.85 })}
                         className="p-2 bg-white/60 text-indigo-700 rounded-lg hover:bg-white transition-colors flex-shrink-0"
-                        title="예문 발음 듣기"
+                        title={t('wordBrowse.listenExample')}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
