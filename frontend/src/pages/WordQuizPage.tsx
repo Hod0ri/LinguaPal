@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import axios from 'axios'
 import { lrsWordQuizApi } from '../services/lrsMiddleware'
 import Layout from '../components/Layout'
@@ -10,6 +11,7 @@ type AnswerState = 'answering' | 'correct' | 'incorrect'
 export default function WordQuizPage() {
   const { quizId } = useParams<{ quizId: string }>()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [quiz, setQuiz] = useState<WordQuiz | null>(null)
   const [currentQuestion, setCurrentQuestion] = useState<CurrentQuestion | null>(null)
@@ -29,7 +31,7 @@ export default function WordQuizPage() {
       const quizResponse = await lrsWordQuizApi.getQuizDetail(parseInt(quizId))
 
       if (!quizResponse.data.success) {
-        setError('퀴즈를 찾을 수 없습니다.')
+        setError(t('wordQuiz.notFound'))
         return
       }
 
@@ -57,14 +59,14 @@ export default function WordQuizPage() {
     } catch (err) {
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 404) {
-          setError('퀴즈를 찾을 수 없습니다.')
+          setError(t('wordQuiz.notFound'))
         } else if (err.response?.status === 403) {
-          setError('이 퀴즈에 접근할 권한이 없습니다.')
+          setError(t('wordQuiz.noPermission'))
         } else {
-          setError('퀴즈를 불러오는데 실패했습니다.')
+          setError(t('wordQuiz.loadFailed'))
         }
       } else {
-        setError('퀴즈를 불러오는데 실패했습니다.')
+        setError(t('wordQuiz.loadFailed'))
       }
     } finally {
       setIsLoading(false)
@@ -97,7 +99,7 @@ export default function WordQuizPage() {
         }
       }
     } catch {
-      setError('답변을 제출할 수 없습니다.')
+      setError(t('wordQuiz.submitFailed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -150,9 +152,9 @@ export default function WordQuizPage() {
     return (
       <Layout>
         <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] gap-4">
-          <p className="text-slate-600">{error || '퀴즈를 찾을 수 없습니다.'}</p>
+          <p className="text-slate-600">{error || t('wordQuiz.notFound')}</p>
           <button onClick={() => navigate('/')} className="btn-primary">
-            메인으로 돌아가기
+            {t('common.goToMain')}
           </button>
         </div>
       </Layout>
@@ -173,32 +175,32 @@ export default function WordQuizPage() {
     // For mixed quiz, determine description based on current question
     if (isMixedQuiz) {
       if (isCurrentQuestionExample) {
-        return '빈칸에 들어갈 단어(또는 동사의 원형)를 선택하세요'
+        return t('wordQuiz.selectFillBlank')
       } else if (currentQuestion.choices && currentQuestion.choices.length > 0) {
-        return `위 ${quiz.native_language_name} 뜻에 해당하는 ${quiz.learning_language_name} 단어를 선택하세요`
+        return t('wordQuiz.selectWord', { native: quiz.native_language_name, learning: quiz.learning_language_name })
       } else {
         // Determine if it's word_to_native or native_to_word_input based on question content
         // Check if question contains Korean characters (Hangul)
         const hasKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(currentQuestion.question)
         if (hasKorean) {
           // Question is in native language (Korean) -> user needs to input in learning language
-          return `위 ${quiz.native_language_name} 뜻에 해당하는 ${quiz.learning_language_name} 단어를 입력하세요`
+          return t('wordQuiz.inputWordFromNative', { native: quiz.native_language_name, learning: quiz.learning_language_name })
         } else {
           // Question is in learning language -> user needs to input in native language
-          return `위 ${quiz.learning_language_name} 단어의 뜻을 ${quiz.native_language_name}로 입력하세요`
+          return t('wordQuiz.inputMeaning', { learning: quiz.learning_language_name, native: quiz.native_language_name })
         }
       }
     }
 
     switch (quiz.quiz_type) {
       case 'word_to_native':
-        return `위 ${quiz.learning_language_name} 단어의 뜻을 ${quiz.native_language_name}로 입력하세요`
+        return t('wordQuiz.inputMeaning', { learning: quiz.learning_language_name, native: quiz.native_language_name })
       case 'native_to_word_select':
-        return `위 ${quiz.native_language_name} 뜻에 해당하는 ${quiz.learning_language_name} 단어를 선택하세요`
+        return t('wordQuiz.selectWord', { native: quiz.native_language_name, learning: quiz.learning_language_name })
       case 'native_to_word_input':
-        return `위 ${quiz.native_language_name} 뜻에 해당하는 ${quiz.learning_language_name} 단어를 입력하세요`
+        return t('wordQuiz.inputWordFromNative', { native: quiz.native_language_name, learning: quiz.learning_language_name })
       case 'example_fill_in_blank':
-        return '빈칸에 들어갈 단어(또는 동사의 원형)를 선택하세요'
+        return t('wordQuiz.selectFillBlank')
       default:
         return ''
     }
@@ -233,10 +235,10 @@ export default function WordQuizPage() {
           </div>
           <div className="flex justify-between mt-2">
             <span className="text-xs text-slate-500">
-              정답: {progress?.correct_so_far}개
+              {t('wordQuiz.correctCount', { count: progress?.correct_so_far })}
             </span>
             <span className="text-xs text-slate-500">
-              정답률: {progress && progress.current > 1
+              {t('wordQuiz.accuracy') + ":"} {progress && progress.current > 1
                 ? Math.round((progress.correct_so_far / (progress.current - 1)) * 100)
                 : 0}%
             </span>
@@ -245,7 +247,7 @@ export default function WordQuizPage() {
 
         <div className="card p-8 mb-6">
           <div className="text-center mb-8">
-            <p className="text-sm text-slate-500 mb-4">문제 {currentQuestion.question_number}</p>
+            <p className="text-sm text-slate-500 mb-4">{t('wordQuiz.question', { number: currentQuestion.question_number })}</p>
             {isExampleFillType ? (
               <div>
                 {(() => {
@@ -314,8 +316,8 @@ export default function WordQuizPage() {
                 disabled={answerState !== 'answering'}
                 placeholder={
                   quiz.quiz_type === 'word_to_native'
-                    ? `${quiz.native_language_name}로 입력하세요`
-                    : `${quiz.learning_language_name} 단어를 입력하세요`
+                    ? t('wordQuiz.inputNative', { language: quiz.native_language_name })
+                    : t('wordQuiz.inputWord', { language: quiz.learning_language_name })
                 }
                 className={`w-full p-4 text-center text-2xl rounded-xl border-2 transition-all focus:outline-none ${
                   answerState === 'answering'
@@ -342,7 +344,7 @@ export default function WordQuizPage() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="font-medium">정답입니다!</span>
+                  <span className="font-medium">{t('wordQuiz.correctAnswer')}</span>
                 </div>
               ) : (
                 <div>
@@ -350,10 +352,10 @@ export default function WordQuizPage() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                    <span className="font-medium">틀렸습니다</span>
+                    <span className="font-medium">{t('wordQuiz.incorrectAnswer')}</span>
                   </div>
                   <p className="text-sm">
-                    정답: <span className="font-bold text-lg">{lastResult.correct_answer}</span>
+                    {t('wordQuiz.answer') + ": "}<span className="font-bold text-lg">{lastResult.correct_answer}</span>
                   </p>
                 </div>
               )}
@@ -366,7 +368,7 @@ export default function WordQuizPage() {
             onClick={() => navigate('/')}
             className="flex-1 btn-secondary"
           >
-            그만하기
+            {t('wordQuiz.quit')}
           </button>
           {answerState === 'answering' ? (
             <button
@@ -374,21 +376,21 @@ export default function WordQuizPage() {
               disabled={!userAnswer.trim() || isSubmitting}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? '확인 중...' : '확인'}
+              {isSubmitting ? t('wordQuiz.checking') : t('wordQuiz.submit')}
             </button>
           ) : lastResult?.quiz_completed ? (
             <button
               onClick={() => navigate(`/word-quiz/result/${quizId}`)}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl"
             >
-              결과 보기
+              {t('wordQuiz.viewResult')}
             </button>
           ) : (
             <button
               onClick={handleNextQuestion}
               className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl"
             >
-              다음 문제
+              {t('wordQuiz.nextQuestion')}
             </button>
           )}
         </div>

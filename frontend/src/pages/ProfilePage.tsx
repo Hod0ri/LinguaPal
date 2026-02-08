@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { userApi, masterApi } from '../services/api'
 import type { Language } from '../types'
@@ -8,6 +9,7 @@ import Layout from '../components/Layout'
 export default function ProfilePage() {
   const { user, profile, refreshProfile } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [nickname, setNickname] = useState('')
   const [selectedLanguages, setSelectedLanguages] = useState<number[]>([])
@@ -51,15 +53,15 @@ export default function ProfilePage() {
     setSuccess('')
 
     if (!nickname.trim()) {
-      setError('닉네임을 입력해주세요.')
+      setError(t('profile.nicknameRequired'))
       return
     }
     if (nickname.length < 2 || nickname.length > 50) {
-      setError('닉네임은 2~50자 사이로 입력해주세요.')
+      setError(t('profile.nicknameLengthError'))
       return
     }
     if (selectedLanguages.length === 0) {
-      setError('학습할 언어를 최소 1개 선택해주세요.')
+      setError(t('profile.selectLanguageError'))
       return
     }
 
@@ -71,11 +73,11 @@ export default function ProfilePage() {
       })
       if (response.data.success) {
         await refreshProfile()
-        setSuccess('프로필이 수정되었습니다.')
+        setSuccess(t('profile.profileUpdated'))
       }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
-      setError(error.response?.data?.message || '프로필 수정에 실패했습니다.')
+      setError(error.response?.data?.message || t('profile.profileUpdateFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -92,7 +94,7 @@ export default function ProfilePage() {
             <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            메인으로 돌아가기
+            {t('common.goToMain')}
           </button>
         </div>
 
@@ -111,8 +113,8 @@ export default function ProfilePage() {
               </div>
             )}
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">프로필 수정</h1>
-              <p className="text-slate-500">계정 정보를 관리하세요</p>
+              <h1 className="text-2xl font-bold text-slate-800">{t('profile.title')}</h1>
+              <p className="text-slate-500">{t('profile.subtitle')}</p>
             </div>
           </div>
 
@@ -138,7 +140,7 @@ export default function ProfilePage() {
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  이메일
+                  {t('profile.email')}
                 </label>
                 <input
                   type="email"
@@ -149,7 +151,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  국가
+                  {t('profile.country')}
                 </label>
                 <input
                   type="text"
@@ -163,25 +165,25 @@ export default function ProfilePage() {
             {/* Nickname */}
             <div>
               <label htmlFor="nickname" className="block text-sm font-semibold text-slate-700 mb-2">
-                닉네임 <span className="text-indigo-500">*</span>
+                {t('profile.nickname')} <span className="text-indigo-500">*</span>
               </label>
               <input
                 type="text"
                 id="nickname"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
-                placeholder="사용할 닉네임을 입력하세요"
+                placeholder={t('profile.nicknamePlaceholder')}
                 className="input-field"
                 maxLength={50}
               />
-              <p className="mt-2 text-xs text-slate-400">{nickname.length}/50자</p>
+              <p className="mt-2 text-xs text-slate-400">{t('profile.nicknameLength', { count: nickname.length })}</p>
             </div>
 
             {/* Languages */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-3">
-                학습할 언어 <span className="text-indigo-500">*</span>
-                <span className="font-normal text-slate-400 ml-2">(복수 선택 가능)</span>
+                {t('profile.learningLanguages')} <span className="text-indigo-500">*</span>
+                <span className="font-normal text-slate-400 ml-2">{t('profile.multipleSelection')}</span>
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {languages.map((lang) => (
@@ -208,7 +210,7 @@ export default function ProfilePage() {
               </div>
               {selectedLanguages.length > 0 && (
                 <p className="mt-3 text-sm text-indigo-600 font-medium">
-                  {selectedLanguages.length}개 언어 선택됨
+                  {t('profile.languagesSelected', { count: selectedLanguages.length })}
                 </p>
               )}
             </div>
@@ -220,7 +222,7 @@ export default function ProfilePage() {
                 onClick={() => navigate('/')}
                 className="flex-1 btn-secondary"
               >
-                취소
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
@@ -233,10 +235,10 @@ export default function ProfilePage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    저장 중...
+                    {t('profile.saving')}
                   </span>
                 ) : (
-                  '저장하기'
+                  t('profile.saveButton')
                 )}
               </button>
             </div>

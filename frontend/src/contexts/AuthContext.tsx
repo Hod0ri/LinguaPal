@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { User, UserProfile } from '../types'
 import { authApi, userApi } from '../services/api'
+import i18n, { getLocaleFromCountry } from '../i18n'
 
 interface AuthContextType {
   user: User | null
@@ -95,6 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setProfile(null)
   }
+
+  // Auto-detect language from profile country (only if user hasn't manually chosen)
+  useEffect(() => {
+    if (profile?.country?.code && !localStorage.getItem('i18n_language')) {
+      const locale = getLocaleFromCountry(profile.country.code)
+      i18n.changeLanguage(locale)
+    }
+  }, [profile?.country?.code])
 
   const refreshProfile = async () => {
     await fetchProfile()

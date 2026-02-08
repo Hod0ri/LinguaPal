@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import api from '../services/api'
@@ -8,6 +9,7 @@ import type { Word, Language } from '../types'
 
 export default function LearnedWordsPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { user, profile } = useAuth()
   const [words, setWords] = useState<Word[]>([])
   const [learningLanguages, setLearningLanguages] = useState<Language[]>([])
@@ -46,7 +48,7 @@ export default function LearnedWordsPage() {
       }
     } catch (err) {
       console.error('Failed to load learned words:', err)
-      setError('학습한 단어를 불러오는데 실패했습니다.')
+      setError(t('learnedWords.loadFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -69,7 +71,7 @@ export default function LearnedWordsPage() {
       <Layout>
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <p className="text-slate-600">로그인이 필요합니다.</p>
+            <p className="text-slate-600">{t('common.loginRequired')}</p>
           </div>
         </div>
       </Layout>
@@ -88,8 +90,8 @@ export default function LearnedWordsPage() {
               </svg>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">학습한 단어</h1>
-              <p className="text-slate-500 mt-1">학습하기에서 본 단어들</p>
+              <h1 className="text-3xl font-bold text-slate-800">{t('learnedWords.title')}</h1>
+              <p className="text-slate-500 mt-1">{t('learnedWords.subtitle')}</p>
             </div>
           </div>
         </div>
@@ -97,7 +99,7 @@ export default function LearnedWordsPage() {
         {/* Language Selector */}
         {learningLanguages.length > 0 && (
           <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-3">학습 언어</label>
+            <label className="block text-sm font-medium text-slate-700 mb-3">{t('learnedWords.learningLanguage')}</label>
             <div className="flex gap-3">
               {learningLanguages.map((lang) => (
                 <button
@@ -140,14 +142,14 @@ export default function LearnedWordsPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 </div>
-                <p className="text-slate-500 mb-2">학습한 단어가 없습니다</p>
-                <p className="text-sm text-slate-400">먼저 학습하기를 진행해보세요!</p>
+                <p className="text-slate-500 mb-2">{t('learnedWords.noWords')}</p>
+                <p className="text-sm text-slate-400">{t('learnedWords.noWordsDesc')}</p>
               </div>
             ) : (
               <>
                 <div className="mb-4 flex items-center justify-between">
                   <p className="text-sm text-slate-600">
-                    총 <span className="font-semibold text-indigo-600">{words.length}</span>개의 단어를 학습했습니다
+                    {t('learnedWords.totalCount', { count: words.length }).replace(/<\/?strong>/g, '')}
                   </p>
                 </div>
 
@@ -165,7 +167,7 @@ export default function LearnedWordsPage() {
                           <button
                             onClick={(e) => handleSpeak(word.text, e)}
                             className="p-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors flex-shrink-0"
-                            title="발음 듣기"
+                            title={t('flashcard.listenPronunciation')}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />

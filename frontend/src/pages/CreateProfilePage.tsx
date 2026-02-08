@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { userApi, masterApi } from '../services/api'
 import type { Language, Country } from '../types'
@@ -9,6 +10,7 @@ const APP_NAME = import.meta.env.VITE_APP_NAME || 'LinguaPal'
 export default function CreateProfilePage() {
   const { user, hasProfile, refreshProfile } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [nickname, setNickname] = useState('')
   const [countryId, setCountryId] = useState<number | ''>('')
@@ -53,19 +55,19 @@ export default function CreateProfilePage() {
     setError('')
 
     if (!nickname.trim()) {
-      setError('닉네임을 입력해주세요.')
+      setError(t('profile.nicknameRequired'))
       return
     }
     if (nickname.length < 2 || nickname.length > 50) {
-      setError('닉네임은 2~50자 사이로 입력해주세요.')
+      setError(t('profile.nicknameLengthError'))
       return
     }
     if (!countryId) {
-      setError('국가를 선택해주세요.')
+      setError(t('createProfile.selectCountryError'))
       return
     }
     if (selectedLanguages.length === 0) {
-      setError('학습할 언어를 최소 1개 선택해주세요.')
+      setError(t('profile.selectLanguageError'))
       return
     }
 
@@ -82,7 +84,7 @@ export default function CreateProfilePage() {
       }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
-      setError(error.response?.data?.message || '프로필 생성에 실패했습니다.')
+      setError(error.response?.data?.message || t('createProfile.createFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -112,10 +114,10 @@ export default function CreateProfilePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">프로필 설정</h2>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">{t('createProfile.title')}</h2>
             <p className="text-slate-500">
-              {user?.name || user?.email}님, 환영합니다!<br />
-              프로필을 완성하고 학습을 시작하세요.
+              {t('createProfile.welcome', { name: user?.name || user?.email })}<br />
+              {t('createProfile.subtitle')}
             </p>
           </div>
 
@@ -132,24 +134,24 @@ export default function CreateProfilePage() {
             {/* Nickname */}
             <div>
               <label htmlFor="nickname" className="block text-sm font-semibold text-slate-700 mb-2">
-                닉네임 <span className="text-indigo-500">*</span>
+                {t('profile.nickname')} <span className="text-indigo-500">*</span>
               </label>
               <input
                 type="text"
                 id="nickname"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
-                placeholder="사용할 닉네임을 입력하세요"
+                placeholder={t('profile.nicknamePlaceholder')}
                 className="input-field"
                 maxLength={50}
               />
-              <p className="mt-2 text-xs text-slate-400">{nickname.length}/50자</p>
+              <p className="mt-2 text-xs text-slate-400">{t('profile.nicknameLength', { count: nickname.length })}</p>
             </div>
 
             {/* Country */}
             <div>
               <label htmlFor="country" className="block text-sm font-semibold text-slate-700 mb-2">
-                국가 <span className="text-indigo-500">*</span>
+                {t('profile.country')} <span className="text-indigo-500">*</span>
               </label>
               <select
                 id="country"
@@ -157,7 +159,7 @@ export default function CreateProfilePage() {
                 onChange={(e) => setCountryId(e.target.value ? Number(e.target.value) : '')}
                 className="input-field"
               >
-                <option value="">국가를 선택하세요</option>
+                <option value="">{t('createProfile.selectCountry')}</option>
                 {countries.map((country) => (
                   <option key={country.id} value={country.id}>
                     {country.name_ko} ({country.name_en})
@@ -169,8 +171,8 @@ export default function CreateProfilePage() {
             {/* Languages */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-3">
-                학습할 언어 <span className="text-indigo-500">*</span>
-                <span className="font-normal text-slate-400 ml-2">(복수 선택 가능)</span>
+                {t('profile.learningLanguages')} <span className="text-indigo-500">*</span>
+                <span className="font-normal text-slate-400 ml-2">{t('profile.multipleSelection')}</span>
               </label>
               <div className="grid grid-cols-2 gap-3">
                 {languages.map((lang) => (
@@ -197,7 +199,7 @@ export default function CreateProfilePage() {
               </div>
               {selectedLanguages.length > 0 && (
                 <p className="mt-3 text-sm text-indigo-600 font-medium">
-                  {selectedLanguages.length}개 언어 선택됨
+                  {t('profile.languagesSelected', { count: selectedLanguages.length })}
                 </p>
               )}
             </div>
@@ -214,10 +216,10 @@ export default function CreateProfilePage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  처리 중...
+                  {t('createProfile.processing')}
                 </span>
               ) : (
-                '시작하기'
+                t('createProfile.submit')
               )}
             </button>
           </form>

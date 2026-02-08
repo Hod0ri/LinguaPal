@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { lrsGanaQuizApi } from '../services/lrsMiddleware'
 import type { GanaCharacterSet, GanaQuizType, GanaQuizQuestionCount } from '../types'
 
@@ -28,6 +29,7 @@ const QUESTION_COUNTS: { value: GanaQuizQuestionCount; label: string }[] = [
 
 export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModalProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [characterSet, setCharacterSet] = useState<GanaCharacterSet>('hiragana')
   const [quizType, setQuizType] = useState<GanaQuizType>('gana_to_romaji')
   const [questionCount, setQuestionCount] = useState<GanaQuizQuestionCount>('10')
@@ -51,7 +53,7 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
         navigate(`/quiz/${quizId}`)
       }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : '퀴즈를 시작할 수 없습니다.'
+      const errorMessage = err instanceof Error ? err.message : t('quizSettings.startFailed')
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -79,7 +81,7 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-slate-800">퀴즈 설정</h2>
+              <h2 className="text-xl font-bold text-slate-800">{t('quizSettings.title')}</h2>
             </div>
             <button
               onClick={onClose}
@@ -100,7 +102,7 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
 
           {/* Character Set Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-3">문자 세트</label>
+            <label className="block text-sm font-medium text-slate-700 mb-3">{t('quizSettings.characterSet')}</label>
             <div className="grid grid-cols-3 gap-3">
               {CHARACTER_SETS.map((set) => (
                 <button
@@ -112,8 +114,8 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
                       : 'border-slate-200 hover:border-slate-300 text-slate-600'
                   }`}
                 >
-                  <div className="font-medium text-sm">{set.label}</div>
-                  <div className="text-xs mt-1 opacity-70">{set.description}</div>
+                  <div className="font-medium text-sm">{t(`quizSettings.characterSets.${set.value}`)}</div>
+                  <div className="text-xs mt-1 opacity-70">{t(`quizSettings.characterSets.${set.value}_desc`)}</div>
                 </button>
               ))}
             </div>
@@ -121,7 +123,7 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
 
           {/* Quiz Type Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-3">퀴즈 유형</label>
+            <label className="block text-sm font-medium text-slate-700 mb-3">{t('quizSettings.quizType')}</label>
             <div className="space-y-2">
               {QUIZ_TYPES.map((type) => (
                 <button
@@ -134,10 +136,10 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
                   }`}
                 >
                   <div className={`font-medium text-sm ${quizType === type.value ? 'text-indigo-700' : 'text-slate-700'}`}>
-                    {type.label}
+                    {t(`quizSettings.types.${type.value}`)}
                   </div>
                   <div className={`text-xs mt-1 ${quizType === type.value ? 'text-indigo-600' : 'text-slate-500'}`}>
-                    {type.description}
+                    {t(`quizSettings.types.${type.value}_desc`)}
                   </div>
                 </button>
               ))}
@@ -146,7 +148,7 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
 
           {/* Question Count Selection */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-3">문제 수</label>
+            <label className="block text-sm font-medium text-slate-700 mb-3">{t('quizSettings.questionCount')}</label>
             <div className="grid grid-cols-3 gap-3">
               {QUESTION_COUNTS.map((count) => (
                 <button
@@ -158,7 +160,7 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
                       : 'border-slate-200 hover:border-slate-300 text-slate-600'
                   }`}
                 >
-                  <div className="font-medium">{count.label}</div>
+                  <div className="font-medium">{t(`quizSettings.counts.${count.value}`)}</div>
                 </button>
               ))}
             </div>
@@ -171,7 +173,7 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
               className="flex-1 btn-secondary"
               disabled={isLoading}
             >
-              취소
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleStartQuiz}
@@ -184,10 +186,10 @@ export default function QuizSettingsModal({ isOpen, onClose }: QuizSettingsModal
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  시작 중...
+                  {t('common.starting')}
                 </span>
               ) : (
-                '퀴즈 시작'
+                t('quizSettings.startQuiz')
               )}
             </button>
           </div>

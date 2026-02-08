@@ -2,12 +2,14 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GoogleOAuthProvider, GoogleLogin, type CredentialResponse } from '@react-oauth/google'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'LinguaPal'
 
 export default function LoginPage() {
   const { isAuthenticated, hasProfile, isLoading, googleClientId, login } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -22,14 +24,14 @@ export default function LoginPage() {
         navigate(result.hasProfile ? '/' : '/create-profile', { replace: true })
       } catch (error) {
         console.error('Login failed:', error)
-        alert('로그인에 실패했습니다. 다시 시도해주세요.')
+        alert(t('login.loginFailed'))
       }
     }
   }
 
   const handleGoogleError = () => {
     console.error('Google login failed')
-    alert('Google 로그인에 실패했습니다.')
+    alert(t('login.googleLoginFailed'))
   }
 
   if (isLoading || !googleClientId) {
@@ -37,7 +39,7 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-          <p className="text-slate-500 animate-pulse">로딩 중...</p>
+          <p className="text-slate-500 animate-pulse">{t('common.loading')}</p>
         </div>
       </div>
     )
@@ -64,7 +66,7 @@ export default function LoginPage() {
               <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 {APP_NAME}
               </h1>
-              <p className="mt-2 text-slate-500">새로운 언어, 새로운 세상을 만나보세요</p>
+              <p className="mt-2 text-slate-500">{t('login.subtitle')}</p>
             </div>
 
             {/* Features */}
@@ -75,7 +77,7 @@ export default function LoginPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 </div>
-                <p className="text-xs text-slate-600 font-medium">단어 학습</p>
+                <p className="text-xs text-slate-600 font-medium">{t('login.wordLearning')}</p>
               </div>
               <div className="text-center p-3">
                 <div className="w-10 h-10 mx-auto mb-2 bg-purple-100 rounded-xl flex items-center justify-center">
@@ -83,7 +85,7 @@ export default function LoginPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
                 </div>
-                <p className="text-xs text-slate-600 font-medium">스마트 퀴즈</p>
+                <p className="text-xs text-slate-600 font-medium">{t('login.smartQuiz')}</p>
               </div>
               <div className="text-center p-3">
                 <div className="w-10 h-10 mx-auto mb-2 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -91,7 +93,7 @@ export default function LoginPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <p className="text-xs text-slate-600 font-medium">진도 관리</p>
+                <p className="text-xs text-slate-600 font-medium">{t('login.progressTracking')}</p>
               </div>
             </div>
 
@@ -101,7 +103,7 @@ export default function LoginPage() {
                 <div className="w-full border-t border-slate-200" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-slate-400">시작하기</span>
+                <span className="px-4 bg-white text-slate-400">{t('login.getStarted')}</span>
               </div>
             </div>
 
@@ -121,11 +123,11 @@ export default function LoginPage() {
 
             {/* Terms */}
             <p className="mt-8 text-center text-xs text-slate-400">
-              로그인 시{' '}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">서비스 이용약관</a>
-              {' '}및{' '}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">개인정보처리방침</a>
-              에 동의합니다.
+              {t('login.termsAgree')}{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">{t('login.termsLink')}</a>
+              {' '}{t('login.and')}{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">{t('login.privacyLink')}</a>
+              {t('login.termsAgreeSuffix')}
             </p>
           </div>
         </div>

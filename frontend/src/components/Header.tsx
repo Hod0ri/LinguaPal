@@ -1,19 +1,33 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'LinguaPal'
 
 export default function Header() {
+  const { t, i18n } = useTranslation()
   const { user, profile, logout } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const langMenuRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+
+  const languages = [
+    { code: 'ko', label: '한국어' },
+    { code: 'en', label: 'English' },
+    { code: 'es', label: 'Español' },
+    { code: 'ja', label: '日本語' },
+  ]
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false)
+      }
+      if (langMenuRef.current && !langMenuRef.current.contains(event.target as Node)) {
+        setIsLangMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -40,6 +54,43 @@ export default function Header() {
             </span>
           </Link>
 
+          <div className="flex items-center gap-2">
+            {/* Language Switcher */}
+            <div className="relative" ref={langMenuRef}>
+              <button
+                onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-slate-100 transition-all duration-200 text-sm text-slate-600"
+                title={t('languageSwitcher.title')}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="hidden sm:inline">{languages.find(l => l.code === i18n.language)?.label || 'Ko'}</span>
+              </button>
+
+              {isLangMenuOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-50">
+                  {languages.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        i18n.changeLanguage(lang.code)
+                        localStorage.setItem('i18n_language', lang.code)
+                        setIsLangMenuOpen(false)
+                      }}
+                      className={`w-full px-4 py-2 text-sm text-left transition-colors ${
+                        i18n.language === lang.code
+                          ? 'bg-indigo-50 text-indigo-700 font-medium'
+                          : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {lang.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
           {user && (
             <div className="relative" ref={menuRef}>
               <button
@@ -61,7 +112,7 @@ export default function Header() {
                   <p className="text-sm font-semibold text-slate-700">
                     {profile?.nickname || user.name || user.email}
                   </p>
-                  <p className="text-xs text-slate-400">내 계정</p>
+                  <p className="text-xs text-slate-400">{t('header.myAccount')}</p>
                 </div>
                 <svg
                   className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`}
@@ -88,7 +139,7 @@ export default function Header() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
-                      프로필 수정
+                      {t('header.editProfile')}
                     </Link>
                     {(user.role === 'admin' || user.role === 'staff') && (
                       <Link
@@ -99,7 +150,7 @@ export default function Header() {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
-                        관리자 대시보드
+                        {t('header.adminDashboard')}
                       </Link>
                     )}
                     <button
@@ -109,13 +160,14 @@ export default function Header() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
-                      로그아웃
+                      {t('header.logout')}
                     </button>
                   </div>
                 </div>
               )}
             </div>
           )}
+          </div>
         </div>
       </div>
     </header>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { vocabularyApi, masterApi } from '../services/api'
 import type { Vocabulary, VocabularyDetail, VocabularyCreateRequest } from '../types/vocabulary'
 import type { Language } from '../types'
@@ -8,6 +9,7 @@ import Layout from '../components/Layout'
 import { tts, getLanguageCode } from '../utils/textToSpeech'
 
 export default function VocabularyPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [vocabularies, setVocabularies] = useState<Vocabulary[]>([])
   const [selectedVocabulary, setSelectedVocabulary] = useState<VocabularyDetail | null>(null)
@@ -82,8 +84,8 @@ export default function VocabularyPage() {
   // 단어장 삭제
   const handleDeleteVocabulary = async (vocabularyId: number) => {
     showConfirm(
-      '단어장 삭제',
-      '정말 이 단어장을 삭제하시겠습니까?',
+      t('vocabulary.deleteVocabulary'),
+      t('vocabulary.deleteConfirm'),
       async () => {
         try {
           await vocabularyApi.deleteVocabulary(vocabularyId)
@@ -91,10 +93,10 @@ export default function VocabularyPage() {
           if (selectedVocabulary?.id === vocabularyId) {
             setSelectedVocabulary(null)
           }
-          showNotification('success', '삭제 완료', '단어장이 삭제되었습니다.')
+          showNotification('success', t('common.confirm'), t('vocabulary.deleteSuccess'))
         } catch (error) {
           console.error('Failed to delete vocabulary:', error)
-          showNotification('error', '삭제 실패', '단어장 삭제에 실패했습니다.')
+          showNotification('error', t('common.error'), t('vocabulary.deleteFailed'))
         }
       }
     )
@@ -105,17 +107,17 @@ export default function VocabularyPage() {
     if (!selectedVocabulary) return
 
     showConfirm(
-      '단어 제거',
-      '이 단어를 단어장에서 제거하시겠습니까?',
+      t('vocabulary.removeWord'),
+      t('vocabulary.removeConfirm'),
       async () => {
         try {
           await vocabularyApi.removeWord(selectedVocabulary.id, wordId)
           fetchVocabularyDetail(selectedVocabulary.id)
           fetchVocabularies() // word_count 업데이트
-          showNotification('success', '제거 완료', '단어가 제거되었습니다.')
+          showNotification('success', t('common.confirm'), t('vocabulary.removeSuccess'))
         } catch (error) {
           console.error('Failed to remove word:', error)
-          showNotification('error', '제거 실패', '단어 제거에 실패했습니다.')
+          showNotification('error', t('common.error'), t('vocabulary.removeFailed'))
         }
       }
     )
@@ -133,9 +135,9 @@ export default function VocabularyPage() {
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">내 단어장</h1>
+              <h1 className="text-3xl font-bold text-slate-800">{t('vocabulary.title')}</h1>
               <p className="text-slate-500 mt-2">
-                나만의 단어장을 만들고 관리하세요
+                {t('vocabulary.subtitle')}
               </p>
             </div>
             <button
@@ -145,7 +147,7 @@ export default function VocabularyPage() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              새 단어장 만들기
+              {t('vocabulary.createNew')}
             </button>
           </div>
         </div>
@@ -159,9 +161,9 @@ export default function VocabularyPage() {
             {/* 단어장 목록 */}
             <div className="lg:col-span-1">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <h2 className="text-lg font-semibold text-slate-800 mb-4">단어장 목록</h2>
+                <h2 className="text-lg font-semibold text-slate-800 mb-4">{t('vocabulary.vocabularyList')}</h2>
                 {vocabularies.length === 0 ? (
-                  <p className="text-slate-500 text-center py-8">단어장이 없습니다</p>
+                  <p className="text-slate-500 text-center py-8">{t('vocabulary.noVocabulary')}</p>
                 ) : (
                   <div className="space-y-2">
                     {vocabularies.map((vocab) => (
@@ -178,7 +180,7 @@ export default function VocabularyPage() {
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-slate-800 truncate">{vocab.name}</h3>
                             <p className="text-sm text-slate-500 mt-1">{vocab.language_name}</p>
-                            <p className="text-xs text-slate-400 mt-1">{vocab.word_count}개 단어</p>
+                            <p className="text-xs text-slate-400 mt-1">{t('common.words', { count: vocab.word_count })}</p>
                           </div>
                           <button
                             onClick={(e) => {
@@ -218,17 +220,17 @@ export default function VocabularyPage() {
                       onClick={() => setShowEditModal(true)}
                       className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
                     >
-                      수정
+                      {t('common.edit')}
                     </button>
                   </div>
 
                   {/* 단어 목록 */}
                   <div className="space-y-3">
                     <h3 className="text-lg font-semibold text-slate-800">
-                      단어 목록 ({selectedVocabulary.vocabulary_words.length}개)
+                      {t('vocabulary.wordList', { count: selectedVocabulary.vocabulary_words.length })}
                     </h3>
                     {selectedVocabulary.vocabulary_words.length === 0 ? (
-                      <p className="text-slate-500 text-center py-12">단어가 없습니다</p>
+                      <p className="text-slate-500 text-center py-12">{t('vocabulary.noWords')}</p>
                     ) : (
                       <div className="space-y-2">
                         {selectedVocabulary.vocabulary_words.map((vocabWord) => (
@@ -248,7 +250,7 @@ export default function VocabularyPage() {
                                   <button
                                     onClick={() => tts.speak(vocabWord.word.text, { lang: getLanguageCode(selectedVocabulary.language_code), rate: 0.9 })}
                                     className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors"
-                                    title="발음 듣기"
+                                    title={t('wordBrowse.listenPronunciation')}
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -279,7 +281,7 @@ export default function VocabularyPage() {
                                       <button
                                         onClick={() => tts.speak(vocabWord.word.example!, { lang: getLanguageCode(selectedVocabulary.language_code), rate: 0.85 })}
                                         className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors flex-shrink-0"
-                                        title="예문 듣기"
+                                        title={t('wordBrowse.listenExample')}
                                       >
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -310,7 +312,7 @@ export default function VocabularyPage() {
                 </div>
               ) : (
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
-                  <p className="text-slate-500">단어장을 선택해주세요</p>
+                  <p className="text-slate-500">{t('vocabulary.selectVocabulary')}</p>
                 </div>
               )}
             </div>
@@ -326,7 +328,7 @@ export default function VocabularyPage() {
           onSuccess={() => {
             setShowCreateModal(false)
             fetchVocabularies()
-            showNotification('success', '생성 완료', '단어장이 생성되었습니다.')
+            showNotification('success', t('common.confirm'), t('vocabulary.createSuccess'))
           }}
           showNotification={showNotification}
         />
@@ -344,7 +346,7 @@ export default function VocabularyPage() {
             if (selectedVocabulary) {
               fetchVocabularyDetail(selectedVocabulary.id)
             }
-            showNotification('success', '수정 완료', '단어장이 수정되었습니다.')
+            showNotification('success', t('common.confirm'), t('vocabulary.editSuccess'))
           }}
           showNotification={showNotification}
         />
@@ -370,7 +372,7 @@ export default function VocabularyPage() {
                 onClick={() => setConfirmModal({ ...confirmModal, show: false })}
                 className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium"
               >
-                취소
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => {
@@ -379,7 +381,7 @@ export default function VocabularyPage() {
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
               >
-                확인
+                {t('common.confirm')}
               </button>
             </div>
           </div>
@@ -401,6 +403,7 @@ function CreateVocabularyModal({
   onSuccess: () => void
   showNotification: (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string) => void
 }) {
+  const { t } = useTranslation()
   const [formData, setFormData] = useState<VocabularyCreateRequest>({
     name: '',
     description: '',
@@ -412,7 +415,7 @@ function CreateVocabularyModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name.trim()) {
-      showNotification('warning', '입력 필요', '단어장 이름을 입력해주세요')
+      showNotification('warning', t('vocabulary.inputRequired'), t('vocabulary.nameRequired'))
       return
     }
 
@@ -422,7 +425,7 @@ function CreateVocabularyModal({
       onSuccess()
     } catch (error) {
       console.error('Failed to create vocabulary:', error)
-      showNotification('error', '생성 실패', '단어장 생성에 실패했습니다.')
+      showNotification('error', t('common.error'), t('vocabulary.createFailed'))
     } finally {
       setLoading(false)
     }
@@ -431,30 +434,30 @@ function CreateVocabularyModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-md w-full p-6">
-        <h2 className="text-2xl font-bold text-slate-800 mb-4">새 단어장 만들기</h2>
+        <h2 className="text-2xl font-bold text-slate-800 mb-4">{t('vocabulary.createTitle')}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">단어장 이름 *</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('vocabulary.nameLabel')} *</label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="예: 일상 회화"
+              placeholder={t('vocabulary.namePlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">설명</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('vocabulary.descriptionLabel')}</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               rows={3}
-              placeholder="단어장에 대한 설명을 입력하세요"
+              placeholder={t('vocabulary.descriptionPlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">언어 *</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('vocabulary.languageLabel')} *</label>
             <select
               value={formData.language}
               onChange={(e) => setFormData({ ...formData, language: parseInt(e.target.value) })}
@@ -473,14 +476,14 @@ function CreateVocabularyModal({
               onClick={onClose}
               className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
             >
-              취소
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
-              {loading ? '생성 중...' : '생성'}
+              {loading ? t('vocabulary.creating') : t('vocabulary.create')}
             </button>
           </div>
         </form>
@@ -503,6 +506,7 @@ function EditVocabularyModal({
   onSuccess: () => void
   showNotification: (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string) => void
 }) {
+  const { t } = useTranslation()
   const [formData, setFormData] = useState<VocabularyCreateRequest>({
     name: vocabulary.name,
     description: vocabulary.description,
@@ -514,7 +518,7 @@ function EditVocabularyModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name.trim()) {
-      showNotification('warning', '입력 필요', '단어장 이름을 입력해주세요')
+      showNotification('warning', t('vocabulary.inputRequired'), t('vocabulary.nameRequired'))
       return
     }
 
@@ -524,7 +528,7 @@ function EditVocabularyModal({
       onSuccess()
     } catch (error) {
       console.error('Failed to update vocabulary:', error)
-      showNotification('error', '수정 실패', '단어장 수정에 실패했습니다.')
+      showNotification('error', t('common.error'), t('vocabulary.editFailed'))
     } finally {
       setLoading(false)
     }
@@ -533,10 +537,10 @@ function EditVocabularyModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-md w-full p-6">
-        <h2 className="text-2xl font-bold text-slate-800 mb-4">단어장 수정</h2>
+        <h2 className="text-2xl font-bold text-slate-800 mb-4">{t('vocabulary.editTitle')}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">단어장 이름 *</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('vocabulary.nameLabel')} *</label>
             <input
               type="text"
               value={formData.name}
@@ -545,7 +549,7 @@ function EditVocabularyModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">설명</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('vocabulary.descriptionLabel')}</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -554,7 +558,7 @@ function EditVocabularyModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">언어 *</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">{t('vocabulary.languageLabel')} *</label>
             <select
               value={formData.language}
               onChange={(e) => setFormData({ ...formData, language: parseInt(e.target.value) })}
@@ -573,14 +577,14 @@ function EditVocabularyModal({
               onClick={onClose}
               className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
             >
-              취소
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
-              {loading ? '수정 중...' : '수정'}
+              {loading ? t('vocabulary.editing') : t('common.edit')}
             </button>
           </div>
         </form>

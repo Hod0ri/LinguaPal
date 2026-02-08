@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { userApi, vocabularyApi } from '../services/api'
 import { lrsWordQuizApi } from '../services/lrsMiddleware'
 import type { WordQuizType, WordQuizQuestionCount, Language } from '../types'
@@ -26,6 +27,7 @@ const QUESTION_COUNTS: { value: WordQuizQuestionCount; label: string }[] = [
 
 export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSettingsModalProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [learningLanguages, setLearningLanguages] = useState<Language[]>([])
   const [selectedLanguage, setSelectedLanguage] = useState<string>('')
   const [quizType, setQuizType] = useState<WordQuizType>('word_to_native')
@@ -33,7 +35,7 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
   const [vocabularies, setVocabularies] = useState<Vocabulary[]>([])
   const [selectedVocabularyId, setSelectedVocabularyId] = useState<number | null>(null)
   const [useVocabulary, setUseVocabulary] = useState(false)
-  const [learnedWordsOnly, setLearnedWordsOnly] = useState(false)
+  const [learnedWordsOnly, setLearnedWordsOnly] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -63,7 +65,7 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
         }
       }
     } catch {
-      setError('프로필을 불러오는데 실패했습니다.')
+      setError(t('wordQuizSettings.profileLoadFailed'))
     } finally {
       setIsLoadingProfile(false)
     }
@@ -82,12 +84,12 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
 
   const handleStartQuiz = async () => {
     if (!selectedLanguage) {
-      setError('학습 언어를 선택해주세요.')
+      setError(t('wordQuizSettings.selectLanguage'))
       return
     }
 
     if (useVocabulary && !selectedVocabularyId) {
-      setError('단어장을 선택해주세요.')
+      setError(t('wordQuizSettings.selectVocabularyError'))
       return
     }
 
@@ -111,9 +113,9 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'response' in err) {
         const axiosErr = err as { response?: { data?: { message?: string } } }
-        setError(axiosErr.response?.data?.message || '퀴즈를 시작할 수 없습니다.')
+        setError(axiosErr.response?.data?.message || t('wordQuizSettings.startFailed'))
       } else {
-        setError('퀴즈를 시작할 수 없습니다.')
+        setError(t('wordQuizSettings.startFailed'))
       }
     } finally {
       setIsLoading(false)
@@ -138,7 +140,7 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-slate-800">단어 퀴즈 설정</h2>
+              <h2 className="text-xl font-bold text-slate-800">{t('wordQuizSettings.title')}</h2>
             </div>
             <button
               onClick={onClose}
@@ -162,13 +164,13 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
             </div>
           ) : learningLanguages.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-slate-500 mb-4">학습 중인 언어가 없습니다.</p>
-              <p className="text-sm text-slate-400">프로필에서 학습 언어를 추가해주세요.</p>
+              <p className="text-slate-500 mb-4">{t('wordQuizSettings.noLanguages')}</p>
+              <p className="text-sm text-slate-400">{t('wordQuizSettings.noLanguagesDesc')}</p>
             </div>
           ) : (
             <>
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-3">학습 언어</label>
+                <label className="block text-sm font-medium text-slate-700 mb-3">{t('wordQuizSettings.learningLanguage')}</label>
                 <div className="grid grid-cols-2 gap-3">
                   {learningLanguages.map((lang) => (
                     <button
@@ -188,7 +190,7 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-3">퀴즈 유형</label>
+                <label className="block text-sm font-medium text-slate-700 mb-3">{t('wordQuizSettings.quizType')}</label>
                 <div className="space-y-2">
                   {QUIZ_TYPES.map((type) => (
                     <button
@@ -201,10 +203,10 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
                       }`}
                     >
                       <div className={`font-medium text-sm ${quizType === type.value ? 'text-emerald-700' : 'text-slate-700'}`}>
-                        {type.label}
+                        {t(`wordQuizSettings.types.${type.value}`)}
                       </div>
                       <div className={`text-xs mt-1 ${quizType === type.value ? 'text-emerald-600' : 'text-slate-500'}`}>
-                        {type.description}
+                        {t(`wordQuizSettings.types.${type.value}_desc`)}
                       </div>
                     </button>
                   ))}
@@ -214,7 +216,7 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
               {/* Vocabulary Selection */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
-                  <label className="block text-sm font-medium text-slate-700">단어장 사용</label>
+                  <label className="block text-sm font-medium text-slate-700">{t('wordQuizSettings.useVocabulary')}</label>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
@@ -232,17 +234,17 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
                       onChange={(e) => setSelectedVocabularyId(e.target.value ? parseInt(e.target.value) : null)}
                       className="w-full p-3 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all"
                     >
-                      <option value="">단어장을 선택하세요</option>
+                      <option value="">{t('wordQuizSettings.selectVocabulary')}</option>
                       {vocabularies
                         .filter((vocab) => vocab.language_code === selectedLanguage)
                         .map((vocab) => (
                           <option key={vocab.id} value={vocab.id}>
-                            {vocab.name} ({vocab.word_count}개 단어)
+                            {vocab.name} ({t('common.words', { count: vocab.word_count })})
                           </option>
                         ))}
                     </select>
                     {vocabularies.filter((vocab) => vocab.language_code === selectedLanguage).length === 0 && (
-                      <p className="text-xs text-slate-500 mt-1">선택한 언어의 단어장이 없습니다.</p>
+                      <p className="text-xs text-slate-500 mt-1">{t('wordQuizSettings.noVocabulary')}</p>
                     )}
                   </div>
                 )}
@@ -252,8 +254,8 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700">배운 단어만</label>
-                    <p className="text-xs text-slate-500 mt-1">학습하기에서 본 단어들로만 퀴즈 구성</p>
+                    <label className="block text-sm font-medium text-slate-700">{t('wordQuizSettings.learnedWordsOnly')}</label>
+                    <p className="text-xs text-slate-500 mt-1">{t('wordQuizSettings.learnedWordsOnlyDesc')}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -268,7 +270,7 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-3">문제 수</label>
+                <label className="block text-sm font-medium text-slate-700 mb-3">{t('wordQuizSettings.questionCount')}</label>
                 <div className="grid grid-cols-3 gap-3">
                   {QUESTION_COUNTS.map((count) => (
                     <button
@@ -280,7 +282,7 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
                           : 'border-slate-200 hover:border-slate-300 text-slate-600'
                       }`}
                     >
-                      <div className="font-medium">{count.label}</div>
+                      <div className="font-medium">{t(`wordQuizSettings.counts.${count.value}`)}</div>
                     </button>
                   ))}
                 </div>
@@ -292,7 +294,7 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
                   className="flex-1 btn-secondary"
                   disabled={isLoading}
                 >
-                  취소
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={handleStartQuiz}
@@ -305,10 +307,10 @@ export default function WordQuizSettingsModal({ isOpen, onClose }: WordQuizSetti
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
-                      시작 중...
+                      {t('common.starting')}
                     </span>
                   ) : (
-                    '퀴즈 시작'
+                    t('wordQuizSettings.startQuiz')
                   )}
                 </button>
               </div>

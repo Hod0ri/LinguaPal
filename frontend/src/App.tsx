@@ -1,3 +1,4 @@
+import './i18n'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'

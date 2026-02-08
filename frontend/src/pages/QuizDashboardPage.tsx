@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { lrsGanaQuizApi } from '../services/lrsMiddleware'
 import Layout from '../components/Layout'
@@ -6,6 +7,7 @@ import QuizSettingsModal from '../components/QuizSettingsModal'
 import type { QuizStats, GanaQuizListItem } from '../types'
 
 export default function QuizDashboardPage() {
+  const { t } = useTranslation()
   const [stats, setStats] = useState<QuizStats | null>(null)
   const [history, setHistory] = useState<GanaQuizListItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -52,11 +54,11 @@ export default function QuizDashboardPage() {
         {/* Page Title */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">학습 대시보드</h1>
-            <p className="text-slate-500">나의 학습 현황을 확인하세요</p>
+            <h1 className="text-2xl font-bold text-slate-800">{t('dashboard.title')}</h1>
+            <p className="text-slate-500">{t('dashboard.subtitle')}</p>
           </div>
           <button onClick={() => setShowQuizModal(true)} className="btn-primary">
-            새 퀴즈 시작
+            {t('dashboard.newQuiz')}
           </button>
         </div>
 
@@ -66,25 +68,25 @@ export default function QuizDashboardPage() {
             <p className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
               {stats?.completed_quizzes || 0}
             </p>
-            <p className="text-sm text-slate-500 mt-1">완료한 퀴즈</p>
+            <p className="text-sm text-slate-500 mt-1">{t('dashboard.completedQuizzes')}</p>
           </div>
           <div className="card p-5 text-center">
             <p className="text-3xl font-bold text-emerald-600">
               {stats?.total_questions_answered || 0}
             </p>
-            <p className="text-sm text-slate-500 mt-1">푼 문제</p>
+            <p className="text-sm text-slate-500 mt-1">{t('dashboard.solvedProblems')}</p>
           </div>
           <div className="card p-5 text-center">
             <p className="text-3xl font-bold text-amber-600">
               {stats?.total_correct || 0}
             </p>
-            <p className="text-sm text-slate-500 mt-1">맞은 문제</p>
+            <p className="text-sm text-slate-500 mt-1">{t('dashboard.correctAnswers')}</p>
           </div>
           <div className="card p-5 text-center">
             <p className="text-3xl font-bold text-rose-600">
               {stats?.overall_accuracy?.toFixed(1) || 0}%
             </p>
-            <p className="text-sm text-slate-500 mt-1">전체 정답률</p>
+            <p className="text-sm text-slate-500 mt-1">{t('dashboard.overallAccuracy')}</p>
           </div>
         </div>
 
@@ -96,24 +98,24 @@ export default function QuizDashboardPage() {
               <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
                 <span className="text-lg font-bold text-indigo-600">あ</span>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">히라가나</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.hiragana')}</h2>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-500">시도한 문제</span>
+                <span className="text-sm text-slate-500">{t('dashboard.attemptedProblems')}</span>
                 <span className="font-medium text-slate-700">{stats?.hiragana_stats.total_attempts || 0}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-500">정답 수</span>
+                <span className="text-sm text-slate-500">{t('dashboard.correctCount')}</span>
                 <span className="font-medium text-emerald-600">{stats?.hiragana_stats.correct_count || 0}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-500">정답률</span>
+                <span className="text-sm text-slate-500">{t('dashboard.accuracy')}</span>
                 <span className="font-medium text-indigo-600">{stats?.hiragana_stats.accuracy?.toFixed(1) || 0}%</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-500">학습한 문자</span>
-                <span className="font-medium text-slate-700">{stats?.hiragana_stats.characters_practiced || 0}개</span>
+                <span className="text-sm text-slate-500">{t('dashboard.practicedCharacters')}</span>
+                <span className="font-medium text-slate-700">{t('common.items', { count: stats?.hiragana_stats.characters_practiced || 0 })}</span>
               </div>
             </div>
           </div>
@@ -124,24 +126,24 @@ export default function QuizDashboardPage() {
               <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
                 <span className="text-lg font-bold text-purple-600">ア</span>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">가타카나</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.katakana')}</h2>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-500">시도한 문제</span>
+                <span className="text-sm text-slate-500">{t('dashboard.attemptedProblems')}</span>
                 <span className="font-medium text-slate-700">{stats?.katakana_stats.total_attempts || 0}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-500">정답 수</span>
+                <span className="text-sm text-slate-500">{t('dashboard.correctCount')}</span>
                 <span className="font-medium text-emerald-600">{stats?.katakana_stats.correct_count || 0}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-500">정답률</span>
+                <span className="text-sm text-slate-500">{t('dashboard.accuracy')}</span>
                 <span className="font-medium text-purple-600">{stats?.katakana_stats.accuracy?.toFixed(1) || 0}%</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-500">학습한 문자</span>
-                <span className="font-medium text-slate-700">{stats?.katakana_stats.characters_practiced || 0}개</span>
+                <span className="text-sm text-slate-500">{t('dashboard.practicedCharacters')}</span>
+                <span className="font-medium text-slate-700">{t('common.items', { count: stats?.katakana_stats.characters_practiced || 0 })}</span>
               </div>
             </div>
           </div>
@@ -158,7 +160,7 @@ export default function QuizDashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-semibold text-slate-800">취약한 문자</h2>
+                <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.weakCharacters')}</h2>
               </div>
               <div className="space-y-2">
                 {stats.weakest_characters.map((char, index) => (
@@ -185,7 +187,7 @@ export default function QuizDashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-semibold text-slate-800">강점 문자</h2>
+                <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.strongCharacters')}</h2>
               </div>
               <div className="space-y-2">
                 {stats.strongest_characters.map((char, index) => (
@@ -213,15 +215,15 @@ export default function QuizDashboardPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">최근 퀴즈 기록</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.recentHistory')}</h2>
             </div>
           </div>
 
           {history.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-slate-500 mb-4">아직 퀴즈 기록이 없습니다</p>
+              <p className="text-slate-500 mb-4">{t('dashboard.noHistory')}</p>
               <button onClick={() => setShowQuizModal(true)} className="btn-primary">
-                첫 퀴즈 시작하기
+                {t('dashboard.startFirstQuiz')}
               </button>
             </div>
           ) : (
@@ -262,7 +264,7 @@ export default function QuizDashboardPage() {
                       </>
                     ) : (
                       <span className="px-3 py-1 bg-amber-100 text-amber-700 text-sm font-medium rounded-full">
-                        진행 중
+                        {t('dashboard.inProgress')}
                       </span>
                     )}
                   </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
@@ -16,6 +17,7 @@ interface CombinedStats {
 
 export default function MainPage() {
   const { profile } = useAuth()
+  const { t } = useTranslation()
   const [showWordQuizModal, setShowWordQuizModal] = useState(false)
   const [combinedStats, setCombinedStats] = useState<CombinedStats | null>(null)
 
@@ -26,6 +28,8 @@ export default function MainPage() {
 
   // 학습 중인 언어 코드 목록
   const learningLanguageCodes = profile?.learning_languages.map(l => l.code) ?? []
+
+  const greetingParts = t('main.greeting', { name: '|||' }).split('|||')
 
   useEffect(() => {
     const loadStats = async () => {
@@ -103,11 +107,13 @@ export default function MainPage() {
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">👋</span>
             <h1 className="text-3xl font-bold text-slate-800">
-              안녕하세요, <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{profile?.nickname}</span>님!
+              {greetingParts[0]}
+              <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">{profile?.nickname}</span>
+              {greetingParts[1]}
             </h1>
           </div>
           <p className="text-slate-500">
-            오늘도 새로운 언어를 배워볼까요?
+            {t('main.subtitle')}
           </p>
         </div>
 
@@ -122,10 +128,10 @@ export default function MainPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-semibold text-slate-800">학습 중인 언어</h2>
+                <h2 className="text-lg font-semibold text-slate-800">{t('main.learningLanguages')}</h2>
               </div>
               <Link to="/profile" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-                수정
+                {t('common.edit')}
               </Link>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -148,16 +154,16 @@ export default function MainPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">단어 보기</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('main.wordBrowse.title')}</h2>
             </div>
             <p className="text-slate-500 text-sm mb-3">
-              단어를 검색하고 찾아보세요.
+              {t('main.wordBrowse.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
-              문법 속성, 예문 하이라이트 포함
+              {t('main.wordBrowse.subdesc')}
             </div>
             <Link to="/words" className="block w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
-              단어 찾기
+              {t('main.wordBrowse.button')}
             </Link>
           </div>
 
@@ -169,16 +175,16 @@ export default function MainPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">학습하기</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('main.flashcard.title')}</h2>
             </div>
             <p className="text-slate-500 text-sm mb-3">
-              스마트 복습으로 단어를 효과적으로 학습하세요.
+              {t('main.flashcard.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
-              1/3 복습 + 2/3 새 단어
+              {t('main.flashcard.subdesc')}
             </div>
             <Link to="/flashcard" className="block w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
-              학습하기
+              {t('main.flashcard.button')}
             </Link>
           </div>
 
@@ -190,16 +196,16 @@ export default function MainPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">학습한 단어</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('main.learnedWords.title')}</h2>
             </div>
             <p className="text-slate-500 text-sm mb-3">
-              학습하기에서 본 단어들을 복습하세요.
+              {t('main.learnedWords.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
-              나의 학습 기록
+              {t('main.learnedWords.subdesc')}
             </div>
             <Link to="/learned-words" className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
-              보러가기
+              {t('main.learnedWords.button')}
             </Link>
           </div>
 
@@ -211,16 +217,16 @@ export default function MainPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">내 단어장</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('main.vocabulary.title')}</h2>
             </div>
             <p className="text-slate-500 text-sm mb-3">
-              나만의 단어장을 만들고 관리하세요.
+              {t('main.vocabulary.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
-              개인화된 학습
+              {t('main.vocabulary.subdesc')}
             </div>
             <Link to="/vocabulary" className="block w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
-              단어장 관리
+              {t('main.vocabulary.button')}
             </Link>
           </div>
 
@@ -232,20 +238,20 @@ export default function MainPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">퀴즈</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('main.quiz.title')}</h2>
             </div>
             <p className="text-slate-500 text-sm mb-3">
-              배운 단어를 테스트해보세요.
+              {t('main.quiz.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
               {combinedStats && combinedStats.completed_quizzes > 0 ? (
-                <span>완료: {combinedStats.completed_quizzes}회 | 정답률: {combinedStats.overall_accuracy?.toFixed(0) || 0}%</span>
+                <span>{t('main.quizStats', { completed: combinedStats.completed_quizzes, accuracy: combinedStats.overall_accuracy?.toFixed(0) || 0 })}</span>
               ) : (
-                <span>아직 기록이 없습니다</span>
+                <span>{t('dashboard.noHistory')}</span>
               )}
             </div>
             <button onClick={() => setShowWordQuizModal(true)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl transition-all">
-              퀴즈 풀기
+              {t('dashboard.takeQuiz')}
             </button>
           </div>
         </div>
@@ -259,10 +265,10 @@ export default function MainPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">전체 학습 통계</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('main.quizDashboard.title')}</h2>
             </div>
             <Link to="/word-quiz/dashboard" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
-              상세 보기
+              {t('main.quizDashboard.button')}
             </Link>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -270,19 +276,19 @@ export default function MainPage() {
               <p className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 {combinedStats?.total_questions_answered || 0}
               </p>
-              <p className="text-sm text-slate-500 mt-1">푼 문제</p>
+              <p className="text-sm text-slate-500 mt-1">{t('dashboard.solvedProblems')}</p>
             </div>
             <div className="text-center p-5 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100/50">
               <p className="text-4xl font-bold text-emerald-600">{combinedStats?.completed_quizzes || 0}</p>
-              <p className="text-sm text-slate-500 mt-1">완료한 퀴즈</p>
+              <p className="text-sm text-slate-500 mt-1">{t('dashboard.completedQuizzes')}</p>
             </div>
             <div className="text-center p-5 bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-100/50">
               <p className="text-4xl font-bold text-amber-600">{combinedStats?.total_correct || 0}</p>
-              <p className="text-sm text-slate-500 mt-1">맞은 문제</p>
+              <p className="text-sm text-slate-500 mt-1">{t('dashboard.correctAnswers')}</p>
             </div>
             <div className="text-center p-5 bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl border border-rose-100/50">
               <p className="text-4xl font-bold text-rose-600">{combinedStats?.overall_accuracy?.toFixed(0) || 0}%</p>
-              <p className="text-sm text-slate-500 mt-1">정답률</p>
+              <p className="text-sm text-slate-500 mt-1">{t('main.accuracy')}</p>
             </div>
           </div>
         </div>

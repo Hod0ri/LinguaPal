@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { lrsWordQuizApi, lrsQuizApi } from '../services/lrsMiddleware'
@@ -9,6 +10,7 @@ import type { WordQuizStats, WordQuizListItem, QuizStats, GanaQuizListItem } fro
 
 export default function WordQuizDashboardPage() {
   const { profile } = useAuth()
+  const { t, i18n } = useTranslation()
   const [stats, setStats] = useState<WordQuizStats | null>(null)
   const [ganaStats, setGanaStats] = useState<QuizStats | null>(null)
   const [history, setHistory] = useState<WordQuizListItem[]>([])
@@ -174,7 +176,7 @@ export default function WordQuizDashboardPage() {
   const convertedGanaHistory = isJapaneseSelected ? ganaHistory.map(quiz => ({
     ...quiz,
     learning_language_code: 'ja',
-    learning_language_name: '일본어',
+    learning_language_name: t('dashboard.japaneseGana'),
     isGanaQuiz: true as const,
   })) : []
 
@@ -202,17 +204,17 @@ export default function WordQuizDashboardPage() {
         {/* Page Title */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">학습 대시보드</h1>
-            <p className="text-slate-500">나의 학습 현황을 확인하세요</p>
+            <h1 className="text-2xl font-bold text-slate-800">{t('dashboard.title')}</h1>
+            <p className="text-slate-500">{t('dashboard.subtitle')}</p>
           </div>
           <div className="flex gap-2">
             {isLearningJapanese && (
               <button onClick={() => setShowGanaQuizModal(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-xl transition-all">
-                가나 퀴즈
+                {t('dashboard.ganaQuiz')}
               </button>
             )}
             <button onClick={() => setShowQuizModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl transition-all">
-              단어 퀴즈
+              {t('dashboard.wordQuiz')}
             </button>
           </div>
         </div>
@@ -221,7 +223,7 @@ export default function WordQuizDashboardPage() {
         {profile?.learning_languages && profile.learning_languages.length > 0 && (
           <div className="card p-4 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-600">언어 필터</span>
+              <span className="text-sm font-medium text-slate-600">{t('dashboard.languageFilter')}</span>
               <button
                 onClick={() => setSelectedLanguages(
                   selectedLanguages.length === learningLanguageCodes.length
@@ -230,7 +232,7 @@ export default function WordQuizDashboardPage() {
                 )}
                 className="text-xs text-emerald-600 hover:text-emerald-700"
               >
-                {selectedLanguages.length === learningLanguageCodes.length ? '전체 해제' : '전체 선택'}
+                {selectedLanguages.length === learningLanguageCodes.length ? t('dashboard.deselectAll') : t('dashboard.selectAll')}
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -264,25 +266,25 @@ export default function WordQuizDashboardPage() {
             <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
               {filteredOverallStats.completed_quizzes}
             </p>
-            <p className="text-sm text-slate-500 mt-1">완료한 퀴즈</p>
+            <p className="text-sm text-slate-500 mt-1">{t('dashboard.completedQuizzes')}</p>
           </div>
           <div className="card p-5 text-center">
             <p className="text-3xl font-bold text-blue-600">
               {filteredOverallStats.total_questions_answered}
             </p>
-            <p className="text-sm text-slate-500 mt-1">푼 문제</p>
+            <p className="text-sm text-slate-500 mt-1">{t('dashboard.solvedProblems')}</p>
           </div>
           <div className="card p-5 text-center">
             <p className="text-3xl font-bold text-amber-600">
               {filteredOverallStats.total_correct}
             </p>
-            <p className="text-sm text-slate-500 mt-1">맞은 문제</p>
+            <p className="text-sm text-slate-500 mt-1">{t('dashboard.correctAnswers')}</p>
           </div>
           <div className="card p-5 text-center">
             <p className="text-3xl font-bold text-rose-600">
               {filteredOverallStats.overall_accuracy.toFixed(1)}%
             </p>
-            <p className="text-sm text-slate-500 mt-1">전체 정답률</p>
+            <p className="text-sm text-slate-500 mt-1">{t('dashboard.overallAccuracy')}</p>
           </div>
         </div>
 
@@ -301,26 +303,26 @@ export default function WordQuizDashboardPage() {
                   <button
                     onClick={() => handleResetClick(langCode, langStats.language_name)}
                     className="text-xs text-slate-400 hover:text-rose-500 transition-colors"
-                    title="통계 초기화"
+                    title={t('dashboard.resetStats')}
                   >
-                    초기화
+                    {t('dashboard.reset')}
                   </button>
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">완료한 퀴즈</span>
+                    <span className="text-sm text-slate-500">{t('dashboard.completedQuizzesLabel')}</span>
                     <span className="font-medium text-slate-700">{langStats.quiz_count || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">시도한 문제</span>
+                    <span className="text-sm text-slate-500">{t('dashboard.attemptedProblems')}</span>
                     <span className="font-medium text-slate-700">{langStats.total_attempts || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">정답 수</span>
+                    <span className="text-sm text-slate-500">{t('dashboard.correctCount')}</span>
                     <span className="font-medium text-emerald-600">{langStats.correct_count || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">정답률</span>
+                    <span className="text-sm text-slate-500">{t('dashboard.accuracy')}</span>
                     <span className="font-medium text-emerald-600">{langStats.accuracy?.toFixed(1) || 0}%</span>
                   </div>
                 </div>
@@ -331,26 +333,26 @@ export default function WordQuizDashboardPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-bold text-indigo-600">あ</span>
-                        <span className="text-sm font-medium text-slate-600">가나 퀴즈</span>
+                        <span className="text-sm font-medium text-slate-600">{t('dashboard.ganaQuizLabel')}</span>
                       </div>
                       <button
                         onClick={() => setShowGanaQuizModal(true)}
                         className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
                       >
-                        퀴즈 풀기
+                        {t('dashboard.takeQuiz')}
                       </button>
                     </div>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500">완료한 퀴즈</span>
+                        <span className="text-slate-500">{t('dashboard.completedQuizzesLabel')}</span>
                         <span className="font-medium text-slate-700">{ganaStats.completed_quizzes || 0}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500">푼 문제</span>
+                        <span className="text-slate-500">{t('dashboard.solvedProblems')}</span>
                         <span className="font-medium text-slate-700">{ganaStats.total_questions_answered || 0}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-500">정답률</span>
+                        <span className="text-slate-500">{t('dashboard.accuracy')}</span>
                         <span className="font-medium text-indigo-600">{ganaStats.overall_accuracy?.toFixed(1) || 0}%</span>
                       </div>
                     </div>
@@ -367,30 +369,30 @@ export default function WordQuizDashboardPage() {
                     <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
                       <span className="text-lg font-bold text-indigo-600">あ</span>
                     </div>
-                    <h2 className="text-lg font-semibold text-slate-800">일본어 (가나)</h2>
+                    <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.japaneseGana')}</h2>
                   </div>
                   <button
                     onClick={() => setShowGanaQuizModal(true)}
                     className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
                   >
-                    퀴즈 풀기
+                    {t('dashboard.takeQuiz')}
                   </button>
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">완료한 퀴즈</span>
+                    <span className="text-sm text-slate-500">{t('dashboard.completedQuizzesLabel')}</span>
                     <span className="font-medium text-slate-700">{ganaStats.completed_quizzes || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">푼 문제</span>
+                    <span className="text-sm text-slate-500">{t('dashboard.solvedProblems')}</span>
                     <span className="font-medium text-slate-700">{ganaStats.total_questions_answered || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">정답 수</span>
+                    <span className="text-sm text-slate-500">{t('dashboard.correctCount')}</span>
                     <span className="font-medium text-indigo-600">{ganaStats.total_correct || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">정답률</span>
+                    <span className="text-sm text-slate-500">{t('dashboard.accuracy')}</span>
                     <span className="font-medium text-indigo-600">{ganaStats.overall_accuracy?.toFixed(1) || 0}%</span>
                   </div>
                 </div>
@@ -410,7 +412,7 @@ export default function WordQuizDashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-semibold text-slate-800">취약한 단어</h2>
+                <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.weakWords')}</h2>
               </div>
               <div className="space-y-2">
                 {filteredWeakestWords.map((word, index) => (
@@ -439,7 +441,7 @@ export default function WordQuizDashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
                 </div>
-                <h2 className="text-lg font-semibold text-slate-800">강점 단어</h2>
+                <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.strongWords')}</h2>
               </div>
               <div className="space-y-2">
                 {filteredStrongestWords.map((word, index) => (
@@ -466,7 +468,7 @@ export default function WordQuizDashboardPage() {
                 <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center">
                   <span className="text-lg font-bold text-rose-600">あ</span>
                 </div>
-                <h2 className="text-lg font-semibold text-slate-800">취약한 가나</h2>
+                <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.weakGana')}</h2>
               </div>
               <div className="space-y-2">
                 {ganaWeakestChars.slice(0, 5).map((char, index) => (
@@ -493,7 +495,7 @@ export default function WordQuizDashboardPage() {
                 <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
                   <span className="text-lg font-bold text-indigo-600">あ</span>
                 </div>
-                <h2 className="text-lg font-semibold text-slate-800">강점 가나</h2>
+                <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.strongGana')}</h2>
               </div>
               <div className="space-y-2">
                 {ganaStrongestChars.slice(0, 5).map((char, index) => (
@@ -525,8 +527,8 @@ export default function WordQuizDashboardPage() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-slate-800">데이터 관리</h2>
-                <p className="text-xs text-slate-400">언어별 퀴즈 기록 초기화 (LRS 로그는 유지됨)</p>
+                <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.dataManagement')}</h2>
+                <p className="text-xs text-slate-400">{t('dashboard.dataManagementDesc')}</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -539,7 +541,7 @@ export default function WordQuizDashboardPage() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  {lang.name_ko} 초기화
+                  {t('dashboard.resetLanguage', { language: lang.name_ko })}
                 </button>
               ))}
             </div>
@@ -555,7 +557,7 @@ export default function WordQuizDashboardPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-slate-800">최근 퀴즈 기록</h2>
+              <h2 className="text-lg font-semibold text-slate-800">{t('dashboard.recentHistory')}</h2>
             </div>
           </div>
 
@@ -563,12 +565,12 @@ export default function WordQuizDashboardPage() {
             <div className="text-center py-8">
               <p className="text-slate-500 mb-4">
                 {selectedLanguages.length === 0
-                  ? '언어를 선택해주세요'
-                  : '선택한 언어의 퀴즈 기록이 없습니다'}
+                  ? t('dashboard.selectLanguage')
+                  : t('dashboard.noHistoryForLanguage')}
               </p>
               {selectedLanguages.length > 0 && (
                 <button onClick={() => setShowQuizModal(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl transition-all">
-                  첫 퀴즈 시작하기
+                  {t('dashboard.startFirstQuiz')}
                 </button>
               )}
             </div>
@@ -590,9 +592,9 @@ export default function WordQuizDashboardPage() {
                       <div className="flex items-center gap-2 mb-1">
                         {quiz.isGanaQuiz ? (
                           <>
-                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-600 text-xs font-medium rounded">가나</span>
+                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-600 text-xs font-medium rounded">{t('dashboard.gana')}</span>
                             <span className="font-medium text-slate-700">
-                              {'character_set_display' in quiz ? quiz.character_set_display : '일본어'}
+                              {'character_set_display' in quiz ? quiz.character_set_display : t('dashboard.japaneseGana')}
                             </span>
                           </>
                         ) : (
@@ -604,7 +606,7 @@ export default function WordQuizDashboardPage() {
                         <span className="text-sm text-slate-500">{quiz.quiz_type_display}</span>
                       </div>
                       <p className="text-xs text-slate-400">
-                        {new Date(quiz.started_at).toLocaleString('ko-KR')}
+                        {new Date(quiz.started_at).toLocaleString(i18n.language)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -625,7 +627,7 @@ export default function WordQuizDashboardPage() {
                         </>
                       ) : (
                         <span className="px-3 py-1 bg-amber-100 text-amber-700 text-sm font-medium rounded-full">
-                          진행 중
+                          {t('dashboard.inProgress')}
                         </span>
                       )}
                     </div>
@@ -653,21 +655,21 @@ export default function WordQuizDashboardPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800">통계 초기화</h3>
+                <h3 className="text-lg font-bold text-slate-800">{t('dashboard.resetStats')}</h3>
                 <p className="text-sm text-slate-500">{resetTargetLang.name}</p>
               </div>
             </div>
 
             <p className="text-slate-600 mb-6">
-              <span className="font-medium text-rose-600">{resetTargetLang.name}</span> 퀴즈 기록을 모두 삭제하시겠습니까?
+              {t('dashboard.resetConfirm', { language: resetTargetLang.name })}
               {resetTargetLang.code === 'ja' && (
                 <>
                   <br />
-                  <span className="text-sm text-amber-600">가나 퀴즈 기록도 함께 삭제됩니다.</span>
+                  <span className="text-sm text-amber-600">{t('dashboard.ganaResetWarning')}</span>
                 </>
               )}
               <br />
-              <span className="text-sm text-slate-400">이 작업은 되돌릴 수 없습니다.</span>
+              <span className="text-sm text-slate-400">{t('dashboard.irreversible')}</span>
             </p>
 
             <div className="flex gap-3">
@@ -679,7 +681,7 @@ export default function WordQuizDashboardPage() {
                 disabled={isResetting}
                 className="flex-1 px-4 py-2 border-2 border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
               >
-                취소
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleResetConfirm}
@@ -692,10 +694,10 @@ export default function WordQuizDashboardPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    초기화 중...
+                    {t('dashboard.resetting')}
                   </span>
                 ) : (
-                  '초기화'
+                  t('dashboard.reset')
                 )}
               </button>
             </div>
