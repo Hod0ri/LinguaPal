@@ -89,6 +89,26 @@
       "title": "学習統計",
       "desc": "クイズの成績と学習状況を確認しましょう。",
       "button": "統計を見る"
+    },
+    "streak": {
+      "days": "{{count}}日",
+      "keepGoing": "連続学習中！この調子で頑張ろう！",
+      "comeBack": "最後の学習から{{days}}日経ちました。また始めましょう！",
+      "startToday": "今日、初めての学習を始めましょう！",
+      "best": "最高記録",
+      "studiedToday": "今日学習済み",
+      "notYetToday": "今日はまだ学習していません"
+    },
+    "recommendation": {
+      "recommended": "おすすめ",
+      "startLearning": "初めての学習を始めましょう！",
+      "lowAccuracy": "正答率が{{accuracy}}%です。復習しましょう！",
+      "reviewWords": "単語を復習する時間です！",
+      "testYourself": "クイズで実力を試しましょう！",
+      "keepPracticing": "練習を続けてスキルアップしましょう！",
+      "checkProgress": "{{count}}個の単語の学習状況を確認しましょう！",
+      "organizeWords": "単語帳を整理しましょう！",
+      "exploreNewWords": "新しい単語を探しましょう！"
     }
   },
   "flashcard": {

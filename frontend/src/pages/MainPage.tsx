@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import WordQuizSettingsModal from '../components/WordQuizSettingsModal'
-import { quizApi, wordQuizApi } from '../services/api'
-import type { QuizStats, WordQuizStats } from '../types'
+import { quizApi, wordQuizApi, streakApi } from '../services/api'
+import type { QuizStats, WordQuizStats, LearningStreak, CardRecommendation } from '../types'
 
 interface CombinedStats {
   total_quizzes: number
@@ -20,6 +20,8 @@ export default function MainPage() {
   const { t } = useTranslation()
   const [showWordQuizModal, setShowWordQuizModal] = useState(false)
   const [combinedStats, setCombinedStats] = useState<CombinedStats | null>(null)
+  const [streak, setStreak] = useState<LearningStreak | null>(null)
+  const [recommendation, setRecommendation] = useState<CardRecommendation | null>(null)
 
   // 일본어 학습 중인지 확인
   const isLearningJapanese = profile?.learning_languages.some(
@@ -99,6 +101,35 @@ export default function MainPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLearningJapanese, JSON.stringify(learningLanguageCodes)])
 
+  useEffect(() => {
+    const loadStreak = async () => {
+      try {
+        const response = await streakApi.getStreakAndRecommendation()
+        if (response.data.success) {
+          setStreak(response.data.data.streak)
+          setRecommendation(response.data.data.recommendation)
+        }
+      } catch {
+        // Silently handle - streak is non-critical
+      }
+    }
+    loadStreak()
+  }, [])
+
+  const isRecommended = (cardId: string) => recommendation?.card_id === cardId
+
+  const cardHighlightClass = (cardId: string) => {
+    if (!isRecommended(cardId)) return ''
+    const colorMap: Record<string, string> = {
+      wordBrowse: 'card-glow-amber',
+      flashcard: 'card-glow-purple',
+      learnedWords: 'card-glow-indigo',
+      vocabulary: 'card-glow-rose',
+      quiz: 'card-glow-emerald',
+    }
+    return colorMap[cardId] || ''
+  }
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -116,6 +147,50 @@ export default function MainPage() {
             {t('main.subtitle')}
           </p>
         </div>
+
+        {/* Streak Banner */}
+        {streak && (
+          <div className="mb-8 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl border border-orange-200/60">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{(streak.current_streak ?? 0) > 0 ? '\uD83D\uDD25' : '\uD83D\uDCDA'}</span>
+                <div>
+                  {(streak.current_streak ?? 0) > 0 ? (
+                    <p className="text-lg font-bold text-orange-800">
+                      {t('main.streak.days', { count: streak.current_streak ?? 0 })} {t('main.streak.keepGoing')}
+                    </p>
+                  ) : streak.days_since_last_study != null ? (
+                    <p className="text-lg font-bold text-slate-700">
+                      {t('main.streak.comeBack', { days: streak.days_since_last_study ?? 0 })}
+                    </p>
+                  ) : (
+                    <p className="text-lg font-bold text-slate-700">
+                      {t('main.streak.startToday')}
+                    </p>
+                  )}
+                  {(streak.max_streak ?? 0) > 0 && (
+                    <p className="text-sm text-orange-600/70">
+                      {t('main.streak.best')}: {t('main.streak.days', { count: streak.max_streak ?? 0 })}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div>
+                {streak.is_active_today ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                    <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    {t('main.streak.studiedToday')}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-full text-sm font-medium">
+                    <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
+                    {t('main.streak.notYetToday')}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -147,7 +222,12 @@ export default function MainPage() {
           </div>
 
           {/* Word Browse Card */}
-          <div className="card p-6 group hover:border-amber-200 transition-colors">
+          <div className={`card p-6 group hover:border-amber-200 transition-colors relative flex flex-col ${cardHighlightClass('wordBrowse')}`}>
+            {isRecommended('wordBrowse') && (
+              <div className="absolute -top-2.5 left-4 px-2.5 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full shadow-sm">
+                {t('main.recommendation.recommended')}
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,15 +240,24 @@ export default function MainPage() {
               {t('main.wordBrowse.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
-              {t('main.wordBrowse.subdesc')}
+              {isRecommended('wordBrowse') && recommendation ? (
+                <span className="text-amber-600 font-medium">{t(`main.recommendation.${recommendation.reason_key}`, recommendation.reason_params)}</span>
+              ) : (
+                t('main.wordBrowse.subdesc')
+              )}
             </div>
-            <Link to="/words" className="block w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
+            <Link to="/words" className="block w-full mt-auto bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
               {t('main.wordBrowse.button')}
             </Link>
           </div>
 
           {/* Flashcard Card */}
-          <div className="card p-6 group hover:border-purple-200 transition-colors">
+          <div className={`card p-6 group hover:border-purple-200 transition-colors relative flex flex-col ${cardHighlightClass('flashcard')}`}>
+            {isRecommended('flashcard') && (
+              <div className="absolute -top-2.5 left-4 px-2.5 py-0.5 bg-purple-500 text-white text-xs font-bold rounded-full shadow-sm">
+                {t('main.recommendation.recommended')}
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,15 +270,24 @@ export default function MainPage() {
               {t('main.flashcard.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
-              {t('main.flashcard.subdesc')}
+              {isRecommended('flashcard') && recommendation ? (
+                <span className="text-purple-600 font-medium">{t(`main.recommendation.${recommendation.reason_key}`, recommendation.reason_params)}</span>
+              ) : (
+                t('main.flashcard.subdesc')
+              )}
             </div>
-            <Link to="/flashcard" className="block w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
+            <Link to="/flashcard" className="block w-full mt-auto bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
               {t('main.flashcard.button')}
             </Link>
           </div>
 
           {/* Learned Words Card */}
-          <div className="card p-6 group hover:border-indigo-200 transition-colors">
+          <div className={`card p-6 group hover:border-indigo-200 transition-colors relative flex flex-col ${cardHighlightClass('learnedWords')}`}>
+            {isRecommended('learnedWords') && (
+              <div className="absolute -top-2.5 left-4 px-2.5 py-0.5 bg-indigo-500 text-white text-xs font-bold rounded-full shadow-sm">
+                {t('main.recommendation.recommended')}
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,15 +300,24 @@ export default function MainPage() {
               {t('main.learnedWords.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
-              {t('main.learnedWords.subdesc')}
+              {isRecommended('learnedWords') && recommendation ? (
+                <span className="text-indigo-600 font-medium">{t(`main.recommendation.${recommendation.reason_key}`, recommendation.reason_params)}</span>
+              ) : (
+                t('main.learnedWords.subdesc')
+              )}
             </div>
-            <Link to="/learned-words" className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
+            <Link to="/learned-words" className="block w-full mt-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
               {t('main.learnedWords.button')}
             </Link>
           </div>
 
           {/* Vocabulary Card */}
-          <div className="card p-6 group hover:border-rose-200 transition-colors">
+          <div className={`card p-6 group hover:border-rose-200 transition-colors relative flex flex-col ${cardHighlightClass('vocabulary')}`}>
+            {isRecommended('vocabulary') && (
+              <div className="absolute -top-2.5 left-4 px-2.5 py-0.5 bg-rose-500 text-white text-xs font-bold rounded-full shadow-sm">
+                {t('main.recommendation.recommended')}
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,15 +330,24 @@ export default function MainPage() {
               {t('main.vocabulary.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
-              {t('main.vocabulary.subdesc')}
+              {isRecommended('vocabulary') && recommendation ? (
+                <span className="text-rose-600 font-medium">{t(`main.recommendation.${recommendation.reason_key}`, recommendation.reason_params)}</span>
+              ) : (
+                t('main.vocabulary.subdesc')
+              )}
             </div>
-            <Link to="/vocabulary" className="block w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
+            <Link to="/vocabulary" className="block w-full mt-auto bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2 px-4 rounded-xl transition-all text-center">
               {t('main.vocabulary.button')}
             </Link>
           </div>
 
           {/* Quiz Card - 단어 퀴즈 (일본어의 경우 가나 포함) */}
-          <div className="card p-6 group hover:border-emerald-200 transition-colors">
+          <div className={`card p-6 group hover:border-emerald-200 transition-colors relative flex flex-col ${cardHighlightClass('quiz')}`}>
+            {isRecommended('quiz') && (
+              <div className="absolute -top-2.5 left-4 px-2.5 py-0.5 bg-emerald-500 text-white text-xs font-bold rounded-full shadow-sm">
+                {t('main.recommendation.recommended')}
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,13 +360,15 @@ export default function MainPage() {
               {t('main.quiz.desc')}
             </p>
             <div className="text-xs text-slate-400 mb-4">
-              {combinedStats && combinedStats.completed_quizzes > 0 ? (
+              {isRecommended('quiz') && recommendation ? (
+                <span className="text-emerald-600 font-medium">{t(`main.recommendation.${recommendation.reason_key}`, recommendation.reason_params)}</span>
+              ) : combinedStats && combinedStats.completed_quizzes > 0 ? (
                 <span>{t('main.quizStats', { completed: combinedStats.completed_quizzes, accuracy: combinedStats.overall_accuracy?.toFixed(0) || 0 })}</span>
               ) : (
                 <span>{t('dashboard.noHistory')}</span>
               )}
             </div>
-            <button onClick={() => setShowWordQuizModal(true)} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl transition-all">
+            <button onClick={() => setShowWordQuizModal(true)} className="w-full mt-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-xl transition-all">
               {t('dashboard.takeQuiz')}
             </button>
           </div>

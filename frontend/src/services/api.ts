@@ -25,6 +25,7 @@ import type {
   BrowseWordListResponse,
   BrowseWordParams,
   RandomWordParams,
+  StreakRecommendationResponse,
 } from '../types'
 import type {
   Vocabulary,
@@ -248,6 +249,12 @@ export const vocabularyApi = {
   // 특정 단어가 속한 내 단어장 목록
   getWordVocabularies: (wordId: number) =>
     api.get<ApiResponse<{ vocabularies: Vocabulary[] }>>(`/words/${wordId}/vocabularies`),
+}
+
+// Streak & Recommendation API
+export const streakApi = {
+  getStreakAndRecommendation: () =>
+    api.get<ApiResponse<StreakRecommendationResponse>>('/lrs/user/streak-recommendation'),
 }
 
 export default api

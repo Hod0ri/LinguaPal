@@ -29,6 +29,9 @@ from .dashboard import (
     RetentionMetricsView,
     GrowthMetricsView,
 )
+from .user_stats import (
+    UserStreakRecommendationView,
+)
 
 __all__ = [
     # xAPI
@@ -50,4 +53,6 @@ __all__ = [
     'EngagementMetricsView',
     'RetentionMetricsView',
     'GrowthMetricsView',
+    # User stats
+    'UserStreakRecommendationView',
 ]
