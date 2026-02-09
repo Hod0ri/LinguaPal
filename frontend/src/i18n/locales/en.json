@@ -109,6 +109,11 @@
       "checkProgress": "Check the progress of {{count}} words!",
       "organizeWords": "Organize your vocabulary!",
       "exploreNewWords": "Explore new words!"
+    },
+    "xp": {
+      "levelProgress": "Level Progress",
+      "dailyXP": "Today",
+      "maxLevel": "Max level reached!"
     }
   },
   "flashcard": {

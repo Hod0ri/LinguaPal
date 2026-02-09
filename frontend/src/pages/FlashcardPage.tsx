@@ -158,6 +158,8 @@ export default function FlashcardPage() {
         if (data.session_completed) {
           setViewState('result')
         } else if (data.next_card) {
+          // 세션 진행도 업데이트
+          setSession(prev => prev ? { ...prev, current_index: prev.current_index + 1 } : null)
           // 카드 전환 애니메이션:
           // 1. 먼저 카드를 앞면으로 뒤집기 (번역→단어)
           // 2. 뒤집기 완료 후 페이드 아웃

@@ -448,3 +448,64 @@ class LRSCredential(models.Model):
 
         # Return both credential and plain secret (only time secret is available)
         return credential, secret
+
+
+class UserXP(models.Model):
+    """Tracks cumulative XP and level for each user."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='xp_profile',
+    )
+    total_xp = models.PositiveIntegerField(default=0)
+    current_level = models.PositiveSmallIntegerField(default=1)
+    max_level_achieved = models.PositiveSmallIntegerField(default=1)
+    daily_xp_earned = models.PositiveIntegerField(default=0)
+    daily_xp_date = models.DateField(null=True, blank=True)
+    daily_flashcard_words = models.PositiveIntegerField(default=0)
+    last_activity_date = models.DateField(null=True, blank=True)
+    absence_penalty_applied = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'User XP'
+        verbose_name_plural = 'User XP'
+
+    def __str__(self):
+        return f'{self.user.email} - Lv.{self.current_level} ({self.total_xp} XP)'
+
+
+class XPTransaction(models.Model):
+    """Audit log for every XP change (earn or penalty)."""
+
+    class XPSource(models.TextChoices):
+        FLASHCARD = 'flashcard', 'Flashcard'
+        QUIZ_PARTICIPATION = 'quiz_participation', 'Quiz Participation'
+        QUIZ_PASS = 'quiz_pass', 'Quiz Pass'
+        ABSENCE_PENALTY = 'absence_penalty', 'Absence Penalty'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='xp_transactions',
+    )
+    source = models.CharField(max_length=30, choices=XPSource.choices)
+    amount = models.IntegerField()
+    description = models.CharField(max_length=200, blank=True)
+    related_object_type = models.CharField(max_length=50, blank=True)
+    related_object_id = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+        ]
+        verbose_name = 'XP Transaction'
+        verbose_name_plural = 'XP Transactions'
+
+    def __str__(self):
+        sign = '+' if self.amount > 0 else ''
+        return f'{self.user.email}: {sign}{self.amount} XP ({self.get_source_display()})'

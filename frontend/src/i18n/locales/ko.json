@@ -109,6 +109,11 @@
       "checkProgress": "{{count}}개 단어의 학습 현황을 확인해보세요!",
       "organizeWords": "단어장을 정리해보세요!",
       "exploreNewWords": "새로운 단어를 탐색해보세요!"
+    },
+    "xp": {
+      "levelProgress": "레벨 진행도",
+      "dailyXP": "오늘",
+      "maxLevel": "최고 레벨 달성!"
     }
   },
   "flashcard": {
