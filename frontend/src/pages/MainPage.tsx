@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import Layout from '../components/Layout'
 import WordQuizSettingsModal from '../components/WordQuizSettingsModal'
 import { quizApi, wordQuizApi, streakApi } from '../services/api'
-import type { QuizStats, WordQuizStats, LearningStreak, CardRecommendation } from '../types'
+import type { QuizStats, WordQuizStats, LearningStreak, CardRecommendation, UserXPStatus } from '../types'
 
 interface CombinedStats {
   total_quizzes: number
@@ -22,6 +22,7 @@ export default function MainPage() {
   const [combinedStats, setCombinedStats] = useState<CombinedStats | null>(null)
   const [streak, setStreak] = useState<LearningStreak | null>(null)
   const [recommendation, setRecommendation] = useState<CardRecommendation | null>(null)
+  const [xp, setXp] = useState<UserXPStatus | null>(null)
 
   // 일본어 학습 중인지 확인
   const isLearningJapanese = profile?.learning_languages.some(
@@ -108,6 +109,7 @@ export default function MainPage() {
         if (response.data.success) {
           setStreak(response.data.data.streak)
           setRecommendation(response.data.data.recommendation)
+          setXp(response.data.data.xp)
         }
       } catch {
         // Silently handle - streak is non-critical
@@ -148,46 +150,128 @@ export default function MainPage() {
           </p>
         </div>
 
-        {/* Streak Banner */}
-        {streak && (
-          <div className="mb-8 p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl border border-orange-200/60">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">{(streak.current_streak ?? 0) > 0 ? '\uD83D\uDD25' : '\uD83D\uDCDA'}</span>
-                <div>
-                  {(streak.current_streak ?? 0) > 0 ? (
-                    <p className="text-lg font-bold text-orange-800">
-                      {t('main.streak.days', { count: streak.current_streak ?? 0 })} {t('main.streak.keepGoing')}
-                    </p>
-                  ) : streak.days_since_last_study != null ? (
-                    <p className="text-lg font-bold text-slate-700">
-                      {t('main.streak.comeBack', { days: streak.days_since_last_study ?? 0 })}
-                    </p>
-                  ) : (
-                    <p className="text-lg font-bold text-slate-700">
-                      {t('main.streak.startToday')}
-                    </p>
-                  )}
-                  {(streak.max_streak ?? 0) > 0 && (
-                    <p className="text-sm text-orange-600/70">
-                      {t('main.streak.best')}: {t('main.streak.days', { count: streak.max_streak ?? 0 })}
-                    </p>
-                  )}
+        {/* Streak & XP Banner */}
+        {(streak || xp) && (
+          <div className="mb-8 p-5 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 rounded-2xl border border-orange-200/60">
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+
+              {/* Left: Streak Section */}
+              {streak && (
+                <div className="flex-1 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{(streak.current_streak ?? 0) > 0 ? '\uD83D\uDD25' : '\uD83D\uDCDA'}</span>
+                    <div>
+                      {(streak.current_streak ?? 0) > 0 ? (
+                        <p className="text-lg font-bold text-orange-800">
+                          {t('main.streak.days', { count: streak.current_streak ?? 0 })} {t('main.streak.keepGoing')}
+                        </p>
+                      ) : streak.days_since_last_study != null ? (
+                        <p className="text-lg font-bold text-slate-700">
+                          {t('main.streak.comeBack', { days: streak.days_since_last_study ?? 0 })}
+                        </p>
+                      ) : (
+                        <p className="text-lg font-bold text-slate-700">
+                          {t('main.streak.startToday')}
+                        </p>
+                      )}
+                      {(streak.max_streak ?? 0) > 0 && (
+                        <p className="text-sm text-orange-600/70">
+                          {t('main.streak.best')}: {t('main.streak.days', { count: streak.max_streak ?? 0 })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="lg:hidden">
+                    {streak.is_active_today ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                        {t('main.streak.studiedToday')}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-full text-sm font-medium">
+                        <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
+                        {t('main.streak.notYetToday')}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div>
-                {streak.is_active_today ? (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                    {t('main.streak.studiedToday')}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-full text-sm font-medium">
-                    <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
-                    {t('main.streak.notYetToday')}
-                  </span>
-                )}
-              </div>
+              )}
+
+              {/* Divider */}
+              {streak && xp && (
+                <>
+                  <div className="hidden lg:block w-px bg-orange-200/80 self-stretch" />
+                  <div className="lg:hidden h-px bg-orange-200/80" />
+                </>
+              )}
+
+              {/* Right: XP & Level Section */}
+              {xp && (
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{(xp.current_level ?? 1) >= 10 ? '\uD83D\uDC51' : '\u2B50'}</span>
+                      <span className="text-2xl font-black bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                        Lv. {xp.current_level ?? 1}
+                      </span>
+                      <span className="text-sm font-medium text-amber-700/70 ml-1">
+                        {xp.total_xp ?? 0} XP
+                      </span>
+                    </div>
+                    {/* Today status badge - desktop only (mobile shown with streak) */}
+                    {streak && (
+                      <div className="hidden lg:block">
+                        {streak.is_active_today ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                            {t('main.streak.studiedToday')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-full text-sm font-medium">
+                            <span className="w-2 h-2 bg-slate-400 rounded-full"></span>
+                            {t('main.streak.notYetToday')}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Level Progress Bar */}
+                  {xp.next_level && (
+                    <div className="mb-2">
+                      <div className="flex justify-between text-xs text-amber-700/60 mb-1">
+                        <span>{t('main.xp.levelProgress')}</span>
+                        <span>{xp.xp_in_level ?? 0} / {xp.xp_for_next_level ?? 0}</span>
+                      </div>
+                      <div className="h-2.5 bg-amber-200/50 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500"
+                          style={{ width: `${xp.progress_percentage ?? 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {!xp.next_level && (
+                    <div className="mb-2">
+                      <p className="text-sm font-medium text-amber-600">{t('main.xp.maxLevel')}</p>
+                    </div>
+                  )}
+
+                  {/* Daily XP Tracker */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-amber-200/50 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-500"
+                        style={{ width: `${((xp.daily_xp_earned ?? 0) / (xp.daily_xp_max || 1)) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-amber-700/60 whitespace-nowrap">
+                      {t('main.xp.dailyXP')}: {xp.daily_xp_earned ?? 0}/{xp.daily_xp_max ?? 30} XP
+                    </span>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         )}

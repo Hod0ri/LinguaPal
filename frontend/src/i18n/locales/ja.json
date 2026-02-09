@@ -109,6 +109,11 @@
       "checkProgress": "{{count}}個の単語の学習状況を確認しましょう！",
       "organizeWords": "単語帳を整理しましょう！",
       "exploreNewWords": "新しい単語を探しましょう！"
+    },
+    "xp": {
+      "levelProgress": "レベル進捗",
+      "dailyXP": "今日",
+      "maxLevel": "最高レベル達成！"
     }
   },
   "flashcard": {

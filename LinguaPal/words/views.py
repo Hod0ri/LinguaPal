@@ -804,6 +804,10 @@ def quiz_answer(request, quiz_id):
         )
         queue_quiz_completion_statements({'statements': completion_statements})
 
+        # XP 보상
+        from lrs.xp_service import award_quiz_xp
+        award_quiz_xp(request.user, quiz, 'GanaQuiz')
+
     quiz.save()
 
     return APIResponse.success(
@@ -1422,6 +1426,10 @@ def word_quiz_answer(request, quiz_id):
         )
         queue_quiz_completion_statements({'statements': completion_statements})
 
+        # XP 보상
+        from lrs.xp_service import award_quiz_xp
+        award_quiz_xp(request.user, quiz, 'WordQuiz')
+
     quiz.save()
 
     return APIResponse.success(
@@ -2024,6 +2032,10 @@ def flashcard_answer(request, session_id):
                 'language_name': session.learning_language.name_ko,
             }
         })
+
+        # XP 보상
+        from lrs.xp_service import award_flashcard_xp
+        award_flashcard_xp(request.user, session)
     else:
         # 다음 카드 정보
         next_record = session.records.select_related('word').prefetch_related(

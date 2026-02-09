@@ -337,6 +337,19 @@ export interface FlashcardAnswerResponse {
   unknown_count?: number  // Deprecated: no longer used
 }
 
+// ============= XP & Level Types =============
+export interface UserXPStatus {
+  total_xp: number
+  current_level: number
+  max_level_achieved: number
+  daily_xp_earned: number
+  daily_xp_max: number
+  xp_in_level: number
+  xp_for_next_level: number
+  progress_percentage: number
+  next_level: number | null
+}
+
 // ============= Streak & Recommendation Types =============
 export interface LearningStreak {
   current_streak: number
@@ -356,6 +369,7 @@ export interface CardRecommendation {
 export interface StreakRecommendationResponse {
   streak: LearningStreak
   recommendation: CardRecommendation
+  xp: UserXPStatus
 }
 
 // Re-export xAPI types

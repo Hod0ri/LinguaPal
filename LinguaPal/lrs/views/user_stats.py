@@ -51,12 +51,16 @@ class UserStreakRecommendationView(APIView):
         streak = self._calculate_streak(user)
         recommendation = self._calculate_recommendation(user)
 
+        from ..xp_service import get_xp_status
+        xp = get_xp_status(user)
+
         return Response({
             'success': True,
-            'message': 'Streak and recommendation retrieved',
+            'message': 'Streak, recommendation, and XP retrieved',
             'data': {
                 'streak': streak,
                 'recommendation': recommendation,
+                'xp': xp,
             },
         })
 
